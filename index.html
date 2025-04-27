@@ -372,7 +372,7 @@
                 <ul class="contributions-list" id="saleList">
                     <li>Chargement des données...</li>
                 </ul>
-                <div class="category-total">Total: <span id="saleTotal">0</span> portions</div>
+                <div class="category-total">Total: <span id="saleTotal">0</span> portions*</div>
                 <div class="meter">
                     <span id="saleMeter" style="width: 0%"></span>
                 </div>
@@ -428,13 +428,13 @@
                 <!-- Jeton anti-CSRF caché -->
                 <input type="hidden" id="csrfToken" name="csrfToken">
                 
-                <label for="nom">Nom et prénom:</label>
+                <label for="nom">Nom et prénom:*</label>
                 <input type="text" id="nom" name="nom" required maxlength="100">
                 
-                <label for="email">Email:</label>
+                <label for="email">Email:*</label>
                 <input type="email" id="email" name="email" required maxlength="100" pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$">
                 
-                <label for="telephone">Téléphone:</label>
+                <label for="telephone">Téléphone:*</label>
                 <input type="tel" id="telephone" name="telephone" pattern="[0-9]{10}">
                 
                 <label for="nbPersonnes">Nombre de personnes:</label>
@@ -442,7 +442,7 @@
                 
                 <label for="categorie">Catégorie:</label>
                 <select id="categorie" name="categorie" required>
-                    <option value="">Choisissez une catégorie</option>
+                    <option value="">Choisissez une catégorie*</option>
                     <option value="sale">Salé</option>
                     <option value="sucre">Sucré</option>
                     <option value="soft">Boissons non alcoolisées</option>
@@ -666,8 +666,8 @@
                 const formToken = document.getElementById("csrfToken").value;
                 
                 // Validation des données
-                if (!nom || !email || !categorie || !detail || !portions) {
-                    showFormError("Veuillez remplir tous les champs obligatoires.");
+                if (!nom || !email || !categorie || !telephone || !portions) {
+                    showFormError("Veuillez remplir tous les champs obligatoires*.");
                     return;
                 }
                 
