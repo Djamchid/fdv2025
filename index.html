@@ -449,13 +449,8 @@
     </footer>
 
     <script>
-        // Configuration Google Sheets
-        const SHEET_ID = '1pTU6yAZcOha9_Yc_0vwDHI4eqUD4hzfYGxfVvmdbUt0';
-        const SHEET_PARTICIPANTS_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Participants`;
-        const SHEET_CONTRIBUTIONS_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Contributions`;
-        
         // URL de l'application Web Google Apps Script
-        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwGGeG_xyNbo8jyOSunNJY3U9NtCSw_FNZw8FK64KHEB1B5pPdXrOQ-SWMn4E4hrs7aMA/exec';
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyFOK3iMp3zxDpe6xb0TMtW34LzAVaPqQZ-LkD1RSIiQMCogdAJj_KkILPpVLAI3gSzMA/exec';
         
         // Variables globales
         let participations = [];
@@ -523,7 +518,8 @@
                     categorie,
                     detail,
                     portions,
-                    commentaire
+                    commentaire,
+                    origin: window.location.hostname // Envoyer le domaine d'origine pour la vérification de sécurité
                 };
                 
                 // Envoyer les données au Google Sheet via Google Apps Script
@@ -578,8 +574,6 @@
                     formBtn.textContent = originalBtnText;
                     formBtn.disabled = false;
                 });
-                
-                // Cette partie est maintenant gérée dans le callback du fetch
             });
             
             // Chargement des données depuis Google Sheets
@@ -589,9 +583,9 @@
         // Fonction pour charger les données depuis Google Sheets via le Google Apps Script
         async function loadDataFromGoogleSheets() {
             try {
-                // Nous allons utiliser notre Google Apps Script pour récupérer les données
-                // Créer une URL pour faire une requête GET au script
-                const fetchUrl = `${GOOGLE_SCRIPT_URL}?action=getData&_=${new Date().getTime()}`;
+                // Créer une URL pour faire une requête GET au script avec l'origine
+                const originParam = window.location.hostname;
+                const fetchUrl = `${GOOGLE_SCRIPT_URL}?action=getData&origin=${originParam}&_=${new Date().getTime()}`;
                 
                 // Afficher un message de chargement
                 document.getElementById("saleList").innerHTML = "<li>Chargement des données...</li>";
