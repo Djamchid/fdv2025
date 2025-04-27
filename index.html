@@ -18,6 +18,8 @@
             --accent: #ff719a;
             --light: #f8f9fa;
             --dark: #212529;
+            --error: #dc3545;
+            --success: #28a745;
         }
         
         * {
@@ -138,12 +140,33 @@
             font-weight: 600;
         }
         
+        .required-field {
+            color: var(--error);
+            margin-left: 3px;
+        }
+        
         input, select, textarea {
             padding: 0.75rem;
             margin-bottom: 1rem;
             border: 1px solid #ddd;
             border-radius: 5px;
             font-size: 1rem;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        input:required, select:required, textarea:required {
+            border-left: 3px solid var(--error);
+        }
+        
+        input.valid, select.valid, textarea.valid {
+            border-color: var(--success);
+            border-left: 3px solid var(--success);
+            background-color: rgba(40, 167, 69, 0.05);
+        }
+        
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(30, 92, 160, 0.2);
         }
         
         .category-box {
@@ -251,13 +274,16 @@
         }
         
         .error {
-            color: red;
+            color: var(--error);
             margin-bottom: 1rem;
+            padding: 0.5rem;
+            background-color: rgba(220, 53, 69, 0.1);
+            border-radius: 5px;
         }
         
         .success {
-            color: green;
-            background-color: #e7f5e7;
+            color: var(--success);
+            background-color: rgba(40, 167, 69, 0.1);
             padding: 1rem;
             border-radius: 5px;
             margin-bottom: 1rem;
@@ -372,7 +398,7 @@
                 <ul class="contributions-list" id="saleList">
                     <li>Chargement des données...</li>
                 </ul>
-                <div class="category-total">Total: <span id="saleTotal">0</span> portions*</div>
+                <div class="category-total">Total: <span id="saleTotal">0</span> portions</div>
                 <div class="meter">
                     <span id="saleMeter" style="width: 0%"></span>
                 </div>
@@ -423,26 +449,27 @@
         <div class="modal-content">
             <span class="close">&times;</span>
             <h2>Inscrivez-vous à la fête</h2>
+            <p style="margin-bottom: 1rem;">Les champs marqués d'un <span class="required-field">*</span> sont obligatoires</p>
             <div id="formSuccess" class="success" style="display: none;">Merci pour votre inscription! Votre contribution a été ajoutée.</div>
             <form id="inscriptionForm">
                 <!-- Jeton anti-CSRF caché -->
                 <input type="hidden" id="csrfToken" name="csrfToken">
                 
-                <label for="nom">Nom et prénom:*</label>
+                <label for="nom">Nom et prénom <span class="required-field">*</span></label>
                 <input type="text" id="nom" name="nom" required maxlength="100">
                 
-                <label for="email">Email:*</label>
+                <label for="email">Email <span class="required-field">*</span></label>
                 <input type="email" id="email" name="email" required maxlength="100" pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$">
                 
-                <label for="telephone">Téléphone:*</label>
-                <input type="tel" id="telephone" name="telephone" pattern="[0-9]{10}">
+                <label for="telephone">Téléphone <span class="required-field">*</span></label>
+                <input type="tel" id="telephone" name="telephone" required pattern="[0-9]{10}" placeholder="0612345678">
                 
-                <label for="nbPersonnes">Nombre de personnes:</label>
+                <label for="nbPersonnes">Nombre de personnes <span class="required-field">*</span></label>
                 <input type="number" id="nbPersonnes" name="nbPersonnes" min="1" max="20" value="1" required>
                 
-                <label for="categorie">Catégorie:</label>
+                <label for="categorie">Catégorie <span class="required-field">*</span></label>
                 <select id="categorie" name="categorie" required>
-                    <option value="">Choisissez une catégorie*</option>
+                    <option value="">Choisissez une catégorie</option>
                     <option value="sale">Salé</option>
                     <option value="sucre">Sucré</option>
                     <option value="soft">Boissons non alcoolisées</option>
@@ -450,14 +477,14 @@
                 </select>
                 
                 <div id="detailsContainer" style="display: none;">
-                    <label for="detail">Que comptez-vous apporter ?</label>
-                    <input type="text" id="detail" name="detail" placeholder="Ex: Quiche lorraine, gâteau au chocolat..." maxlength="200">
+                    <label for="detail">Que comptez-vous apporter ? <span class="required-field">*</span></label>
+                    <input type="text" id="detail" name="detail" placeholder="Ex: Quiche lorraine, gâteau au chocolat..." maxlength="200" required>
                     
-                    <label for="portions">Nombre de portions:</label>
-                    <input type="number" id="portions" name="portions" min="1" max="100" value="1">
+                    <label for="portions">Nombre de portions <span class="required-field">*</span></label>
+                    <input type="number" id="portions" name="portions" min="1" max="100" value="1" required>
                 </div>
                 
-                <label for="commentaire">Commentaire:</label>
+                <label for="commentaire">Commentaire</label>
                 <textarea id="commentaire" name="commentaire" rows="3" maxlength="500"></textarea>
                 
                 <div id="formError" class="error" style="display: none;"></div>
@@ -478,7 +505,7 @@
                 <ul>
                     <li>Nom et prénom</li>
                     <li>Adresse email</li>
-                    <li>Numéro de téléphone (facultatif)</li>
+                    <li>Numéro de téléphone</li>
                     <li>Nombre de personnes participantes</li>
                     <li>Type de contribution à l'événement</li>
                 </ul>
@@ -518,7 +545,7 @@
     <script>
         // Configuration sécurisée
         const CONFIG = {
-            // L'URL de l'API est stockée dans une constante avec une configuration plus sécurisée
+            // L'URL de l'API mise à jour
             API_URL: 'https://script.google.com/macros/s/AKfycbyeFJUBvFZmvrfeGtPY2Qp82Bsaybvuo3WyKDbrdWt_LNfKpfnGWwGKuDDVc-b0E8KCbw/exec',
             // URL du groupe WhatsApp (non exposée directement dans le HTML)
             WHATSAPP_URL: 'https://chat.whatsapp.com/KBffouh7SXH6pz2CQGtF3l',
@@ -549,7 +576,6 @@
         }
         
         function validatePhone(phone) {
-            if (!phone) return true; // Le téléphone est facultatif
             const re = /^[0-9]{10}$/;
             return re.test(phone);
         }
@@ -586,9 +612,59 @@
             // Gestion du formulaire
             setupForm();
             
+            // Validation en temps réel des champs
+            setupLiveValidation();
+            
             // Chargement des données depuis Google Sheets
             loadDataFromGoogleSheets();
         });
+        
+        // Configuration de la validation en temps réel
+        function setupLiveValidation() {
+            // Liste des champs à valider en temps réel
+            const fields = [
+                { id: 'nom', validate: value => value.trim().length > 0 },
+                { id: 'email', validate: validateEmail },
+                { id: 'telephone', validate: validatePhone },
+                { id: 'nbPersonnes', validate: value => !isNaN(value) && parseInt(value) >= 1 && parseInt(value) <= 20 },
+                { id: 'categorie', validate: value => value !== '' },
+                { id: 'detail', validate: value => value.trim().length > 0 },
+                { id: 'portions', validate: value => !isNaN(value) && parseInt(value) >= 1 && parseInt(value) <= 100 }
+            ];
+            
+            // Ajouter des écouteurs d'événements pour chaque champ
+            fields.forEach(field => {
+                const element = document.getElementById(field.id);
+                if (element) {
+                    // Validation à chaque modification du champ
+                    element.addEventListener('input', function() {
+                        validateField(this, field.validate);
+                    });
+                    
+                    // Validation lors de la perte de focus
+                    element.addEventListener('blur', function() {
+                        validateField(this, field.validate);
+                    });
+                }
+            });
+        }
+        
+        // Valider un champ et mettre à jour son apparence
+        function validateField(field, validateFn) {
+            if (!field.required && field.value.trim() === '') {
+                // Champ facultatif et vide
+                field.classList.remove('valid');
+                return true;
+            }
+            
+            const isValid = validateFn(field.value);
+            if (isValid) {
+                field.classList.add('valid');
+            } else {
+                field.classList.remove('valid');
+            }
+            return isValid;
+        }
         
         function setupModals() {
             // Modal d'inscription
@@ -660,14 +736,14 @@
                 const telephone = document.getElementById("telephone").value.trim();
                 const nbPersonnes = parseInt(document.getElementById("nbPersonnes").value);
                 const categorie = document.getElementById("categorie").value;
-                const detail = document.getElementById("detail").value.trim();
-                const portions = parseInt(document.getElementById("portions").value);
+                const detail = document.getElementById("detail") ? document.getElementById("detail").value.trim() : "";
+                const portions = document.getElementById("portions") ? parseInt(document.getElementById("portions").value) : 0;
                 const commentaire = document.getElementById("commentaire").value.trim();
                 const formToken = document.getElementById("csrfToken").value;
                 
                 // Validation des données
-                if (!nom || !email || !categorie || !telephone || !portions) {
-                    showFormError("Veuillez remplir tous les champs obligatoires*.");
+                if (!nom || !email || !telephone || !categorie || (categorie && (!detail || !portions))) {
+                    showFormError("Veuillez remplir tous les champs obligatoires.");
                     return;
                 }
                 
@@ -676,7 +752,7 @@
                     return;
                 }
                 
-                if (telephone && !validatePhone(telephone)) {
+                if (!validatePhone(telephone)) {
                     showFormError("Veuillez entrer un numéro de téléphone valide (10 chiffres).");
                     return;
                 }
@@ -686,7 +762,7 @@
                     return;
                 }
                 
-                if (isNaN(portions) || portions < 1 || portions > 100) {
+                if (categorie && (isNaN(portions) || portions < 1 || portions > 100)) {
                     showFormError("Le nombre de portions doit être entre 1 et 100.");
                     return;
                 }
@@ -763,9 +839,15 @@
                         showFormSuccess();
                         resetForm();
                         
-                        // Générer un nouveau jeton CSRF
-                        csrfToken = generateCSRFToken();
-                        document.getElementById('csrfToken').value = csrfToken;
+                        // Mettre à jour le jeton CSRF si un nouveau jeton est fourni
+                        if (data.newCsrfToken) {
+                            csrfToken = data.newCsrfToken;
+                            document.getElementById('csrfToken').value = csrfToken;
+                        } else {
+                            // Générer un nouveau jeton CSRF
+                            csrfToken = generateCSRFToken();
+                            document.getElementById('csrfToken').value = csrfToken;
+                        }
                         
                         // Recharger les données après 2 secondes
                         setTimeout(() => {
@@ -861,6 +943,12 @@
                 if (response.ok) {
                     const jsonData = await response.json();
                     
+                    // Si un nouveau jeton CSRF est fourni, le stocker
+                    if (jsonData.csrfToken) {
+                        csrfToken = jsonData.csrfToken;
+                        document.getElementById('csrfToken').value = csrfToken;
+                    }
+                    
                     if (jsonData.result === 'success' && jsonData.data && jsonData.data.length > 0) {
                         // Transformer les données pour correspondre à notre format
                         participations = jsonData.data.map((row, index) => ({
@@ -901,10 +989,10 @@
         // Fonction pour utiliser des données par défaut en cas d'erreur
         function useDefaultData() {
             participations = [
-                {id: 1, nom: "Participant Exemple 1", email: "exemple1@example.com", telephone: "", nbPersonnes: 2, categorie: "sale", detail: "Quiche aux légumes", portions: 8, commentaire: ""},
-                {id: 2, nom: "Participant Exemple 2", email: "exemple2@example.com", telephone: "", nbPersonnes: 3, categorie: "sucre", detail: "Tarte aux fruits", portions: 10, commentaire: ""},
-                {id: 3, nom: "Participant Exemple 3", email: "exemple3@example.com", telephone: "", nbPersonnes: 1, categorie: "alco", detail: "Vin rouge", portions: 12, commentaire: "2 bouteilles"},
-                {id: 4, nom: "Participant Exemple 4", email: "exemple4@example.com", telephone: "", nbPersonnes: 2, categorie: "soft", detail: "Jus et sodas", portions: 10, commentaire: ""}
+                {id: 1, nom: "Participant Exemple 1", email: "exemple1@example.com", telephone: "0612345678", nbPersonnes: 2, categorie: "sale", detail: "Quiche aux légumes", portions: 8, commentaire: ""},
+                {id: 2, nom: "Participant Exemple 2", email: "exemple2@example.com", telephone: "0623456789", nbPersonnes: 3, categorie: "sucre", detail: "Tarte aux fruits", portions: 10, commentaire: ""},
+                {id: 3, nom: "Participant Exemple 3", email: "exemple3@example.com", telephone: "0634567890", nbPersonnes: 1, categorie: "alco", detail: "Vin rouge", portions: 12, commentaire: "2 bouteilles"},
+                {id: 4, nom: "Participant Exemple 4", email: "exemple4@example.com", telephone: "0645678901", nbPersonnes: 2, categorie: "soft", detail: "Jus et sodas", portions: 10, commentaire: ""}
             ];
             updateContributionsList();
         }
@@ -1008,6 +1096,12 @@
             document.getElementById("detailsContainer").style.display = "none";
             document.getElementById("formError").style.display = "none";
             document.getElementById("formSuccess").style.display = "none";
+            
+            // Réinitialiser les classes de validation
+            const inputs = document.querySelectorAll('input, select, textarea');
+            inputs.forEach(input => {
+                input.classList.remove('valid');
+            });
             
             // Générer un nouveau jeton CSRF
             csrfToken = generateCSRFToken();
