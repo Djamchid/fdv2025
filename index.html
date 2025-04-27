@@ -290,6 +290,19 @@
                     <h3>Comment participer?</h3>
                     <p>Pour que la fête soit réussie, chacun est invité à apporter quelque chose à partager. Inscrivez-vous via le formulaire et indiquez ce que vous souhaitez apporter!</p>
                 </div>
+                
+                <div class="recommendations" style="background-color: #dcf8c6; border-left: 4px solid #25d366; margin-top: 1.5rem; padding: 1.2rem;">
+                    <h3 style="display: flex; align-items: center;">
+                        <span style="font-size: 1.5rem; margin-right: 10px;">📱</span>
+                        Rejoignez notre groupe WhatsApp !
+                    </h3>
+                    <p>Pour recevoir toutes les informations en temps réel et rester en contact avec les participants :</p>
+                    <p style="margin-top: 0.8rem;">
+                        <a href="https://chat.whatsapp.com/KBffouh7SXH6pz2CQGtF3l" target="_blank" style="display: inline-block; background-color: #25d366; color: white; padding: 0.75rem 1.5rem; border-radius: 50px; text-decoration: none; font-weight: bold; transition: all 0.3s ease;">
+                            <span style="font-size: 1.1rem;">Rejoindre le groupe WhatsApp</span>
+                        </a>
+                    </p>
+                </div>
             </div>
 
             <div class="info-box">
@@ -436,6 +449,11 @@
     </footer>
 
     <script>
+        // Configuration Google Sheets
+        const SHEET_ID = '1pTU6yAZcOha9_Yc_0vwDHI4eqUD4hzfYGxfVvmdbUt0';
+        const SHEET_PARTICIPANTS_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Participants`;
+        const SHEET_CONTRIBUTIONS_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Contributions`;
+        
         // URL de l'application Web Google Apps Script
         const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwGGeG_xyNbo8jyOSunNJY3U9NtCSw_FNZw8FK64KHEB1B5pPdXrOQ-SWMn4E4hrs7aMA/exec';
         
