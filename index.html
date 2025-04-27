@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>La Fête des Voisins 2025 - 25 ans</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <style>
+        :root {
+            --primary: #f7941d;
+            --secondary: #1e5ca0;
+            --accent: #ff719a;
+            --light: #f8f9fa;
+            --dark: #212529;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f0f8ff;
+            color: var(--dark);
+            line-height: 1.6;
+        }
+        
+        header {
+            background-color: var(--secondary);
+            color: white;
+            text-align: center;
+            padding: 1rem;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        header img {
+            max-width: 300px;
+            margin-bottom: 1rem;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem 1rem;
+        }
+        
+        .banner {
+            background: linear-gradient(135deg, var(--secondary), #0e4c8a);
+            color: white;
+            padding: 2rem;
+            border-radius: 10px;
+            margin-bottom: 2rem;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .banner h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .banner h2 {
+            font-size: 1.8rem;
+            font-weight: normal;
+        }
+        
+        .cake {
+            font-size: 5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .info-box {
+            background-color: white;
+            border-radius: 10px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        }
+        
+        .info-box h2 {
+            color: var(--secondary);
+            margin-bottom: 1rem;
+            border-bottom: 2px solid var(--primary);
+            padding-bottom: 0.5rem;
+        }
+        
+        .info-box p {
+            margin-bottom: 1rem;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+        
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .btn {
+            display: inline-block;
+            background-color: var(--primary);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            margin-top: 1rem;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        
+        .btn:hover {
+            background-color: #e07c0a;
+            transform: translateY(-2px);
+        }
+        
+        form {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        label {
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+        
+        input, select, textarea {
+            padding: 0.75rem;
+            margin-bottom: 1rem;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+        
+        .category-box {
+            border: 1px solid #ddd;
+            padding: 1rem;
+            border-radius: 5px;
+            margin-bottom: 1rem;
+        }
+        
+        .category-title {
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            color: var(--secondary);
+        }
+        
+        .contributions-list {
+            list-style-type: none;
+            margin-bottom: 1rem;
+        }
+        
+        .contributions-list li {
+            padding: 0.5rem;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .category-total {
+            font-weight: bold;
+            text-align: right;
+            padding-top: 0.5rem;
+        }
+        
+        .meter {
+            height: 20px;
+            position: relative;
+            background: #f3f3f3;
+            border-radius: 25px;
+            margin-top: 0.5rem;
+            overflow: hidden;
+        }
+        
+        .meter > span {
+            display: block;
+            height: 100%;
+            background-color: var(--primary);
+            position: relative;
+            overflow: hidden;
+            border-radius: 25px;
+        }
+        
+        footer {
+            background-color: var(--secondary);
+            color: white;
+            text-align: center;
+            padding: 2rem;
+            margin-top: 2rem;
+        }
+        
+        .recommendations {
+            background-color: #fff9e6;
+            border-left: 4px solid var(--primary);
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+        
+        .modal-content {
+            background-color: white;
+            margin: 15% auto;
+            padding: 20px;
+            border-radius: 10px;
+            width: 70%;
+            max-width: 500px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            animation: slideIn 0.3s ease;
+        }
+        
+        @keyframes slideIn {
+            from {transform: translateY(-50px); opacity: 0;}
+            to {transform: translateY(0); opacity: 1;}
+        }
+        
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .close:hover {
+            color: black;
+        }
+        
+        .error {
+            color: red;
+            margin-bottom: 1rem;
+        }
+        
+        .success {
+            color: green;
+            background-color: #e7f5e7;
+            padding: 1rem;
+            border-radius: 5px;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div>
+            <h1 style="font-size: 2.5rem; margin-bottom: 10px;">La Fête des Voisins</h1>
+            <div style="background-color: var(--primary); height: 4px; width: 200px; margin: 0 auto 10px;"></div>
+            <h2 style="color: var(--primary); font-size: 1.8rem; margin-bottom: 10px;">25 ans</h2>
+            <p>Vendredi 23 mai 2025 à 19h</p>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="banner">
+            <div class="cake">🎂</div>
+            <h1>Fêtons 25 ans de convivialité!</h1>
+            <h2>22 rue Guilleminot, 92370 Chaville</h2>
+            <button class="btn" id="openModalBtn">S'inscrire maintenant</button>
+        </div>
+
+        <div class="grid">
+            <div class="info-box">
+                <h2>À propos de l'événement</h2>
+                <p>La Fête des Voisins célèbre ses 25 ans cette année! C'est l'occasion parfaite pour rencontrer vos voisins, partager un repas convivial et créer des liens dans notre quartier.</p>
+                <p><strong>Date:</strong> Vendredi 23 mai 2025</p>
+                <p><strong>Heure:</strong> 19h</p>
+                <p><strong>Lieu:</strong> 22 rue Guilleminot, 92370 Chaville</p>
+                <p><strong>Organisateurs:</strong> Xueling et Djamchid DaliLi</p>
+                <p><strong>Contact:</strong> WhatsApp 0615020076</p>
+                
+                <div class="recommendations">
+                    <h3>Comment participer?</h3>
+                    <p>Pour que la fête soit réussie, chacun est invité à apporter quelque chose à partager. Inscrivez-vous via le formulaire et indiquez ce que vous souhaitez apporter!</p>
+                </div>
+            </div>
+
+            <div class="info-box">
+                <h2>Recommandations</h2>
+                <p>Pour que tout le monde profite de la fête, voici quelques suggestions sur les quantités à apporter :</p>
+                
+                <div class="category-box">
+                    <div class="category-title">Salé 🥨</div>
+                    <ul>
+                        <li>Quiche/tarte salée : 1 pour 6-8 personnes</li>
+                        <li>Plateau de charcuterie : 100g par personne</li>
+                        <li>Sandwichs/wraps : 2-3 pièces par personne</li>
+                        <li>Salade composée : 1 saladier pour 8-10 personnes</li>
+                    </ul>
+                </div>
+                
+                <div class="category-box">
+                    <div class="category-title">Sucré 🍰</div>
+                    <ul>
+                        <li>Gâteau/tarte : 1 pour 8-10 personnes</li>
+                        <li>Petits gâteaux/cookies : 2-3 par personne</li>
+                        <li>Fruits : 100g par personne</li>
+                    </ul>
+                </div>
+                
+                <div class="category-box">
+                    <div class="category-title">Boissons 🥤</div>
+                    <ul>
+                        <li>Soft drinks : 50cl par personne</li>
+                        <li>Vin : 1 bouteille pour 4-5 personnes</li>
+                        <li>Bière : 1-2 canettes/bouteilles par personne</li>
+                        <li>Eau : 50cl par personne</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="info-box">
+            <h2>Ce que les voisins apportent</h2>
+            <p>Voici ce que tout le monde a prévu d'apporter. N'hésitez pas à vous inscrire pour compléter !</p>
+            
+            <div class="category-box">
+                <div class="category-title">🥪 Salé</div>
+                <ul class="contributions-list" id="saleList">
+                    <li>Chargement des données...</li>
+                </ul>
+                <div class="category-total">Total: <span id="saleTotal">0</span> portions</div>
+                <div class="meter">
+                    <span id="saleMeter" style="width: 0%"></span>
+                </div>
+            </div>
+            
+            <div class="category-box">
+                <div class="category-title">🍰 Sucré</div>
+                <ul class="contributions-list" id="sucreList">
+                    <li>Chargement des données...</li>
+                </ul>
+                <div class="category-total">Total: <span id="sucreTotal">0</span> portions</div>
+                <div class="meter">
+                    <span id="sucreMeter" style="width: 0%"></span>
+                </div>
+            </div>
+            
+            <div class="category-box">
+                <div class="category-title">🥤 Boissons non alcoolisées</div>
+                <ul class="contributions-list" id="softList">
+                    <li>Chargement des données...</li>
+                </ul>
+                <div class="category-total">Total: <span id="softTotal">0</span> portions</div>
+                <div class="meter">
+                    <span id="softMeter" style="width: 0%"></span>
+                </div>
+            </div>
+            
+            <div class="category-box">
+                <div class="category-title">🍷 Boissons alcoolisées</div>
+                <ul class="contributions-list" id="alcoList">
+                    <li>Chargement des données...</li>
+                </ul>
+                <div class="category-total">Total: <span id="alcoTotal">0</span> portions</div>
+                <div class="meter">
+                    <span id="alcoMeter" style="width: 0%"></span>
+                </div>
+            </div>
+            
+            <div class="recommendations">
+                <h3>Équilibre des contributions</h3>
+                <p>Pour l'instant, nous manquons de : <span id="missingItems">chargement...</span></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal pour l'inscription -->
+    <div id="inscriptionModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Inscrivez-vous à la fête</h2>
+            <div id="formSuccess" class="success" style="display: none;">Merci pour votre inscription! Votre contribution a été ajoutée.</div>
+            <form id="inscriptionForm">
+                <label for="nom">Nom et prénom:</label>
+                <input type="text" id="nom" name="nom" required>
+                
+                <label for="email">Email:</label>
+                <input type="email" id="email" name="email" required>
+                
+                <label for="telephone">Téléphone:</label>
+                <input type="tel" id="telephone" name="telephone">
+                
+                <label for="nbPersonnes">Nombre de personnes:</label>
+                <input type="number" id="nbPersonnes" name="nbPersonnes" min="1" value="1" required>
+                
+                <label for="categorie">Catégorie:</label>
+                <select id="categorie" name="categorie" required>
+                    <option value="">Choisissez une catégorie</option>
+                    <option value="sale">Salé</option>
+                    <option value="sucre">Sucré</option>
+                    <option value="soft">Boissons non alcoolisées</option>
+                    <option value="alco">Boissons alcoolisées</option>
+                </select>
+                
+                <div id="detailsContainer" style="display: none;">
+                    <label for="detail">Que comptez-vous apporter ?</label>
+                    <input type="text" id="detail" name="detail" placeholder="Ex: Quiche lorraine, gâteau au chocolat...">
+                    
+                    <label for="portions">Nombre de portions:</label>
+                    <input type="number" id="portions" name="portions" min="1" value="1">
+                </div>
+                
+                <label for="commentaire">Commentaire:</label>
+                <textarea id="commentaire" name="commentaire" rows="3"></textarea>
+                
+                <div id="formError" class="error" style="display: none;"></div>
+                
+                <button type="submit" class="btn">S'inscrire</button>
+            </form>
+        </div>
+    </div>
+
+    <footer>
+        <p>La Fête des Voisins 2025 - 25ème anniversaire</p>
+        <p>Organisé par Xueling et Djamchid DaliLi</p>
+        <p>Contact: 0615020076</p>
+        <p><a href="https://www.lafetedesvoisins.fr" style="color: white;">www.lafetedesvoisins.fr</a></p>
+    </footer>
+
+    <script>
+        // URL de l'application Web Google Apps Script
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwGGeG_xyNbo8jyOSunNJY3U9NtCSw_FNZw8FK64KHEB1B5pPdXrOQ-SWMn4E4hrs7aMA/exec';
+        
+        // Variables globales
+        let participations = [];
+        const targetPerCategory = 30; // Nombre cible de portions par catégorie
+        
+        // Fonctions d'initialisation
+        document.addEventListener('DOMContentLoaded', function() {
+            // Gestion du modal
+            const modal = document.getElementById("inscriptionModal");
+            const btn = document.getElementById("openModalBtn");
+            const span = document.getElementsByClassName("close")[0];
+            
+            btn.onclick = function() {
+                modal.style.display = "block";
+            }
+            
+            span.onclick = function() {
+                modal.style.display = "none";
+                resetForm();
+            }
+            
+            window.onclick = function(event) {
+                if (event.target == modal) {
+                    modal.style.display = "none";
+                    resetForm();
+                }
+            }
+            
+            // Gestion du formulaire
+            const form = document.getElementById("inscriptionForm");
+            const categorieSelect = document.getElementById("categorie");
+            const detailsContainer = document.getElementById("detailsContainer");
+            
+            categorieSelect.addEventListener("change", function() {
+                if (this.value) {
+                    detailsContainer.style.display = "block";
+                } else {
+                    detailsContainer.style.display = "none";
+                }
+            });
+            
+            form.addEventListener("submit", function(e) {
+                e.preventDefault();
+                
+                const nom = document.getElementById("nom").value;
+                const email = document.getElementById("email").value;
+                const telephone = document.getElementById("telephone").value;
+                const nbPersonnes = parseInt(document.getElementById("nbPersonnes").value);
+                const categorie = document.getElementById("categorie").value;
+                const detail = document.getElementById("detail").value;
+                const portions = parseInt(document.getElementById("portions").value);
+                const commentaire = document.getElementById("commentaire").value;
+                
+                if (!nom || !email || !categorie || !detail || !portions) {
+                    showFormError("Veuillez remplir tous les champs obligatoires.");
+                    return;
+                }
+                
+                const newData = {
+                    timestamp: new Date().toISOString(),
+                    nom,
+                    email,
+                    telephone,
+                    nbPersonnes,
+                    categorie,
+                    detail,
+                    portions,
+                    commentaire
+                };
+                
+                // Envoyer les données au Google Sheet via Google Apps Script
+                console.log("Données à envoyer au Google Sheet:", newData);
+                
+                // Afficher un message d'attente
+                const formBtn = document.querySelector("#inscriptionForm .btn");
+                const originalBtnText = formBtn.textContent;
+                formBtn.textContent = "Envoi en cours...";
+                formBtn.disabled = true;
+                
+                fetch(GOOGLE_SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    cache: 'no-cache',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    redirect: 'follow',
+                    body: JSON.stringify(newData)
+                })
+                .then(response => {
+                    console.log("Données envoyées avec succès");
+                    // Comme mode: 'no-cors' ne permet pas de lire la réponse,
+                    // nous ne pouvons pas vérifier le succès, alors nous le supposons
+                    
+                    // Réinitialiser le bouton
+                    formBtn.textContent = originalBtnText;
+                    formBtn.disabled = false;
+                    
+                    // Ajouter aux données locales pour la mise à jour de l'interface
+                    const newId = participations.length > 0 ? participations[participations.length - 1].id + 1 : 1;
+                    participations.push({
+                        id: newId,
+                        ...newData
+                    });
+                    
+                    updateContributionsList();
+                    showFormSuccess();
+                    resetForm();
+                    
+                    // Recharger les données après 2 secondes pour s'assurer que les nouvelles données sont affichées
+                    setTimeout(() => {
+                        loadDataFromGoogleSheets();
+                    }, 2000);
+                })
+                .catch(error => {
+                    console.error('Erreur lors de l\'envoi des données:', error);
+                    showFormError("Erreur lors de l'enregistrement. Veuillez réessayer.");
+                    
+                    // Réinitialiser le bouton
+                    formBtn.textContent = originalBtnText;
+                    formBtn.disabled = false;
+                });
+                
+                // Cette partie est maintenant gérée dans le callback du fetch
+            });
+            
+            // Chargement des données depuis Google Sheets
+            loadDataFromGoogleSheets();
+        });
+        
+        // Fonction pour charger les données depuis Google Sheets via le Google Apps Script
+        async function loadDataFromGoogleSheets() {
+            try {
+                // Nous allons utiliser notre Google Apps Script pour récupérer les données
+                // Créer une URL pour faire une requête GET au script
+                const fetchUrl = `${GOOGLE_SCRIPT_URL}?action=getData&_=${new Date().getTime()}`;
+                
+                // Afficher un message de chargement
+                document.getElementById("saleList").innerHTML = "<li>Chargement des données...</li>";
+                document.getElementById("sucreList").innerHTML = "<li>Chargement des données...</li>";
+                document.getElementById("softList").innerHTML = "<li>Chargement des données...</li>";
+                document.getElementById("alcoList").innerHTML = "<li>Chargement des données...</li>";
+                
+                // Tenter de récupérer les données du serveur
+                const response = await fetch(fetchUrl, {
+                    method: 'GET',
+                    mode: 'cors', // Essayer avec CORS activé
+                });
+                
+                if (response.ok) {
+                    const jsonData = await response.json();
+                    
+                    if (jsonData.result === 'success' && jsonData.data && jsonData.data.length > 0) {
+                        // Transformer les données pour correspondre à notre format
+                        participations = jsonData.data.map((row, index) => ({
+                            id: index + 1,
+                            nom: row.nom || '',
+                            email: row.email || '',
+                            telephone: row.telephone || '',
+                            nbPersonnes: parseInt(row.nbPersonnes) || 1,
+                            categorie: row.categorie || '',
+                            detail: row.detail || '',
+                            portions: parseInt(row.portions) || 0,
+                            commentaire: row.commentaire || ''
+                        }));
+                        
+                        // Mettre à jour l'interface
+                        updateContributionsList();
+                        return;
+                    }
+                }
+                
+                // Si nous n'avons pas pu charger les données ou si elles sont vides,
+                // utiliser les données par défaut
+                console.log("Aucune donnée chargée du serveur, utilisation des données par défaut");
+                useDefaultData();
+                updateContributionsList();
+                
+            } catch (error) {
+                console.error('Erreur lors du chargement des données:', error);
+                // En cas d'erreur, utiliser des données de démo
+                useDefaultData();
+                updateContributionsList();
+            }
+        }
+        
+        // Fonction pour utiliser des données par défaut en cas d'erreur
+        function useDefaultData() {
+            participations = [
+                {id: 1, nom: "Marie Dupont", email: "marie@example.com", telephone: "0612345678", nbPersonnes: 2, categorie: "sale", detail: "Quiche lorraine", portions: 8, commentaire: "Fait maison !"},
+                {id: 2, nom: "Jean Durand", email: "jean@example.com", telephone: "0623456789", nbPersonnes: 3, categorie: "sucre", detail: "Tarte aux pommes", portions: 10, commentaire: ""},
+                {id: 3, nom: "Sophie Martin", email: "sophie@example.com", telephone: "0634567890", nbPersonnes: 1, categorie: "alco", detail: "Bouteilles de vin rouge", portions: 12, commentaire: "2 bouteilles"},
+                {id: 4, nom: "Thomas Petit", email: "thomas@example.com", telephone: "0645678901", nbPersonnes: 2, categorie: "soft", detail: "Jus d'orange et coca", portions: 10, commentaire: ""}
+            ];
+            updateContributionsList();
+        }
+        
+        // Fonctions de mise à jour de l'UI
+        function updateContributionsList() {
+            const categories = {
+                sale: { list: document.getElementById("saleList"), total: document.getElementById("saleTotal"), meter: document.getElementById("saleMeter") },
+                sucre: { list: document.getElementById("sucreList"), total: document.getElementById("sucreTotal"), meter: document.getElementById("sucreMeter") },
+                soft: { list: document.getElementById("softList"), total: document.getElementById("softTotal"), meter: document.getElementById("softMeter") },
+                alco: { list: document.getElementById("alcoList"), total: document.getElementById("alcoTotal"), meter: document.getElementById("alcoMeter") }
+            };
+            
+            const totals = { sale: 0, sucre: 0, soft: 0, alco: 0 };
+            
+            // Réinitialiser les listes
+            for (const cat in categories) {
+                categories[cat].list.innerHTML = "";
+            }
+            
+            // Remplir avec les participations
+            participations.forEach(p => {
+                if (categories[p.categorie]) {
+                    const li = document.createElement("li");
+                    li.innerHTML = `<span>${p.detail} (${p.nom})</span> <span>${p.portions} portions</span>`;
+                    categories[p.categorie].list.appendChild(li);
+                    totals[p.categorie] += parseInt(p.portions) || 0;
+                }
+            });
+            
+            // Ajouter un message si la liste est vide
+            for (const cat in categories) {
+                if (categories[cat].list.children.length === 0) {
+                    categories[cat].list.innerHTML = "<li>Aucune contribution pour le moment</li>";
+                }
+            }
+            
+            // Mettre à jour les totaux et barres de progression
+            for (const cat in categories) {
+                categories[cat].total.textContent = totals[cat];
+                const percentage = Math.min(totals[cat] / targetPerCategory * 100, 100);
+                categories[cat].meter.style.width = `${percentage}%`;
+                
+                // Changer la couleur en fonction du pourcentage
+                if (percentage < 30) {
+                    categories[cat].meter.style.backgroundColor = "#ff6b6b"; // Rouge
+                } else if (percentage < 70) {
+                    categories[cat].meter.style.backgroundColor = "#ffc145"; // Orange
+                } else {
+                    categories[cat].meter.style.backgroundColor = "#66bb6a"; // Vert
+                }
+            }
+            
+            // Mise à jour des recommandations
+            updateMissingItems(totals);
+        }
+        
+        function updateMissingItems(totals) {
+            const missingSpan = document.getElementById("missingItems");
+            const missing = [];
+            
+            if (totals.sale < targetPerCategory) missing.push("plats salés");
+            if (totals.sucre < targetPerCategory) missing.push("desserts");
+            if (totals.soft < targetPerCategory) missing.push("boissons non alcoolisées");
+            if (totals.alco < targetPerCategory) missing.push("boissons alcoolisées");
+            
+            if (missing.length === 0) {
+                missingSpan.textContent = "Nous avons un bon équilibre! Merci à tous!";
+                missingSpan.style.color = "green";
+            } else {
+                missingSpan.textContent = missing.join(", ");
+                missingSpan.style.color = "#e07c0a";
+            }
+        }
+        
+        function showFormError(message) {
+            const errorDiv = document.getElementById("formError");
+            errorDiv.textContent = message;
+            errorDiv.style.display = "block";
+        }
+        
+        function showFormSuccess() {
+            const successDiv = document.getElementById("formSuccess");
+            successDiv.style.display = "block";
+            
+            setTimeout(() => {
+                document.getElementById("inscriptionModal").style.display = "none";
+                successDiv.style.display = "none";
+            }, 2000);
+        }
+        
+        function resetForm() {
+            document.getElementById("inscriptionForm").reset();
+            document.getElementById("detailsContainer").style.display = "none";
+            document.getElementById("formError").style.display = "none";
+            document.getElementById("formSuccess").style.display = "none";
+        }
+    </script>
+</body>
+</html>
