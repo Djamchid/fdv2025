@@ -1,6 +1,6 @@
 // Configuration sécurisée
 const CONFIG = {
-    // L'URL de l'API mise à jour
+    // L'URL de l'API mise à jour - Vous devrez remplacer cette URL après votre nouveau déploiement
     API_URL: 'https://script.google.com/macros/s/AKfycbyeFJUBvFZmvrfeGtPY2Qp82Bsaybvuo3WyKDbrdWt_LNfKpfnGWwGKuDDVc-b0E8KCbw/exec',
     // URL du groupe WhatsApp (non exposée directement dans le HTML)
     WHATSAPP_URL: 'https://chat.whatsapp.com/KBffouh7SXH6pz2CQGtF3l',
@@ -26,8 +26,13 @@ function generateCSRFToken() {
 
 // Fonctions de validation
 function validateEmail(email) {
-    const re = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    return re.test(String(email).toLowerCase());
+    // Expression régulière corrigée pour les validations d'email
+    if (!email || typeof email !== 'string') return false;
+    // Validation simple qui évite les problèmes de regex complexes
+    if (!email.includes('@')) return false;
+    const parts = email.split('@');
+    if (parts.length !== 2 || !parts[0].length || !parts[1].length) return false;
+    return parts[1].includes('.');
 }
 
 function validatePhone(phone) {
@@ -258,7 +263,7 @@ function setupForm() {
         
         fetch(CONFIG.API_URL, {
             method: 'POST',
-            mode: 'cors', // Tentative avec CORS
+            mode: 'cors', // Mode CORS maintenant que le serveur est configuré correctement
             cache: 'no-cache',
             headers: {
                 'Content-Type': 'application/json',
@@ -316,53 +321,15 @@ function setupForm() {
             clearTimeout(timeoutId);
             console.error('Erreur lors de l\'envoi des données:', error);
             
-            // Essai alternatif avec mode no-cors en cas d'échec
             if (error.name === 'AbortError') {
                 showFormError("La requête a pris trop de temps. Veuillez réessayer.");
             } else {
-                // Tentative avec no-cors comme fallback
-                fetch(CONFIG.API_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    cache: 'no-cache',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    redirect: 'follow',
-                    body: JSON.stringify(sanitizedData)
-                })
-                .then(() => {
-                    // Succès présumé (no-cors ne permet pas de lire la réponse)
-                    const newId = participations.length > 0 ? 
-                        Math.max(...participations.map(p => p.id)) + 1 : 1;
-                        
-                    participations.push({
-                        id: newId,
-                        ...sanitizedData
-                    });
-                    
-                    updateContributionsList();
-                    showFormSuccess();
-                    resetForm();
-                    
-                    // Générer un nouveau jeton CSRF
-                    csrfToken = generateCSRFToken();
-                    document.getElementById('csrfToken').value = csrfToken;
-                    
-                    setTimeout(() => {
-                        loadDataFromGoogleSheets();
-                    }, 2000);
-                })
-                .catch(fallbackError => {
-                    console.error('Erreur lors de la tentative de secours:', fallbackError);
-                    showFormError("Erreur de connexion. Veuillez vérifier votre connexion internet et réessayer.");
-                })
-                .finally(() => {
-                    // Réinitialiser le bouton
-                    formBtn.textContent = originalBtnText;
-                    formBtn.disabled = false;
-                });
+                showFormError("Erreur de connexion. Veuillez vérifier votre connexion internet et réessayer.");
             }
+            
+            // Réinitialiser le bouton
+            formBtn.textContent = originalBtnText;
+            formBtn.disabled = false;
         });
     });
 }
