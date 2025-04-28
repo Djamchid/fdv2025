@@ -1,7 +1,7 @@
 // Configuration sécurisée
 const CONFIG = {
     // L'URL de l'API mise à jour - Vous devrez remplacer cette URL après votre nouveau déploiement
-    API_URL: 'https://script.google.com/macros/s/AKfycbx8hiEDN_ncShkzXKoOk79enFAvcH7TP_xV0KmEqtB5dj1hOkL7f4iterT_KT45PHXoGw/exec',
+    API_URL: 'https://djamchid.github.io/fete-voisins-api/api',
     // URL du groupe WhatsApp (non exposée directement dans le HTML)
     WHATSAPP_URL: 'https://chat.whatsapp.com/KBffouh7SXH6pz2CQGtF3l',
     // Nombre cible de portions par catégorie
