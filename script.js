@@ -1,7 +1,8 @@
 // Configuration sécurisée
 const CONFIG = {
     // L'URL de l'API mise à jour - Vous devrez remplacer cette URL après votre nouveau déploiement
-    API_URL: 'https://djamchid.github.io/fete-voisins-api/api',
+    // IMPORTANT: Remplacez cette URL par celle de votre nouveau déploiement
+    API_URL: 'https://script.google.com/macros/s/AKfycbw889WG6676-JK8k0begiTWH160ZstKy3QS8xsTVY46UTBLRviBbKiRHe7ix7WWvBXeuA/exec',
     // URL du groupe WhatsApp (non exposée directement dans le HTML)
     WHATSAPP_URL: 'https://chat.whatsapp.com/KBffouh7SXH6pz2CQGtF3l',
     // Nombre cible de portions par catégorie
@@ -263,7 +264,7 @@ function setupForm() {
         
         fetch(CONFIG.API_URL, {
             method: 'POST',
-            mode: 'cors', // Mode CORS maintenant que le serveur est configuré correctement
+            // CORS retiré
             cache: 'no-cache',
             headers: {
                 'Content-Type': 'application/json',
@@ -353,10 +354,10 @@ async function loadDataFromGoogleSheets() {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), CONFIG.REQUEST_TIMEOUT);
         
-        // Tenter de récupérer les données du serveur
+        // Tenter de récupérer les données du serveur - SANS mode CORS
         const response = await fetch(fetchUrl, {
             method: 'GET',
-            mode: 'cors',
+            // mode: 'cors' retiré
             signal: controller.signal
         });
         
