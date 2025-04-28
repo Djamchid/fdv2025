@@ -1,603 +1,312 @@
-// Configuration sécurisée
+/**
+ * Script principal pour l'interface "La Fête des Voisins"
+ * Ce script gère l'interface utilisateur et les interactions avec l'API
+ */
+
+// Configuration
 const CONFIG = {
-    // L'URL de l'API mise à jour - REMPLACEZ CETTE URL avec celle de votre nouveau déploiement
-    API_URL: 'https://script.google.com/macros/s/AKfycbyiI7RJnVK4BTw1OK9u4Xeq1kKHj7Dg4BO5_9Ov8YPbtADxv7S0HROG8IvIcHOxz4GsJA/exec',
-    // URL du groupe WhatsApp (non exposée directement dans le HTML)
-    WHATSAPP_URL: 'https://chat.whatsapp.com/KBffouh7SXH6pz2CQGtF3l',
-    // Nombre cible de portions par catégorie
-    TARGET_PER_CATEGORY: 30,
-    // Délai d'attente maximum pour les requêtes (en ms)
-    REQUEST_TIMEOUT: 10000
+  // Textes pour l'interface
+  TEXTS: {
+    LOADING: 'Chargement en cours...',
+    SUCCESS: 'Votre contribution a été enregistrée avec succès!',
+    ERROR: 'Une erreur est survenue: ',
+    API_LOADING: 'Connexion à l\'API en cours...',
+    API_ERROR: 'Impossible de se connecter à l\'API. Veuillez réessayer plus tard.',
+    FORM_ERROR: 'Veuillez corriger les erreurs dans le formulaire.',
+    SENDING: 'Envoi en cours...'
+  },
+  
+  // Classes CSS
+  CSS: {
+    SUCCESS: 'success',
+    ERROR: 'error',
+    LOADING: 'loading',
+    HIDDEN: 'hidden',
+    INVALID: 'invalid'
+  }
 };
 
-// Variables globales
-let participations = [];
-let csrfToken = '';
-
-// Génération d'un jeton CSRF
-function generateCSRFToken() {
-    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let token = '';
-    for (let i = 0; i < 32; i++) {
-        token += characters.charAt(Math.floor(Math.random() * characters.length));
-    }
-    return token;
-}
-
-// Fonctions de validation
-function validateEmail(email) {
-    // Expression régulière corrigée pour les validations d'email
-    if (!email || typeof email !== 'string') return false;
-    // Validation simple qui évite les problèmes de regex complexes
-    if (!email.includes('@')) return false;
-    const parts = email.split('@');
-    if (parts.length !== 2 || !parts[0].length || !parts[1].length) return false;
-    return parts[1].includes('.');
-}
-
-function validatePhone(phone) {
-    const re = /^[0-9]{10}$/;
-    return re.test(phone);
-}
-
-function sanitizeInput(input) {
-    if (typeof input !== 'string') return input;
-    // Échapper les caractères HTML spéciaux
-    return input
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-}
-
-// Fonctions d'initialisation
-document.addEventListener('DOMContentLoaded', function() {
-    // Générer et stocker un jeton CSRF
-    csrfToken = generateCSRFToken();
-    document.getElementById('csrfToken').value = csrfToken;
+/**
+ * Gestionnaire de l'interface utilisateur
+ */
+class UIManager {
+  constructor() {
+    // Référence aux éléments du DOM
+    this.form = document.getElementById('contribution-form');
+    this.resultDiv = document.getElementById('form-result');
+    this.apiStatusDiv = document.getElementById('api-status');
+    this.loadingIndicator = document.getElementById('loading-indicator');
     
-    // Configuration du lien WhatsApp avec confirmation
-    const whatsappLink = document.getElementById('whatsapp-link');
-    whatsappLink.addEventListener('click', function(e) {
-        e.preventDefault();
-        if (confirm('Vous allez être redirigé vers WhatsApp pour rejoindre le groupe. Continuer?')) {
-            window.open(CONFIG.WHATSAPP_URL, '_blank');
-        }
-    });
-    
-    // Gestion des modals
-    setupModals();
-    
-    // Gestion du formulaire
-    setupForm();
-    
-    // Validation en temps réel des champs
-    setupLiveValidation();
-    
-    // Chargement des données depuis Google Sheets
-    loadDataFromGoogleSheets();
-});
-
-// Configuration de la validation en temps réel
-function setupLiveValidation() {
-    // Liste des champs à valider en temps réel
-    const fields = [
-        { id: 'nom', validate: value => value.trim().length > 0 },
-        { id: 'email', validate: validateEmail },
-        { id: 'telephone', validate: validatePhone },
-        { id: 'nbPersonnes', validate: value => !isNaN(value) && parseInt(value) >= 1 && parseInt(value) <= 20 },
-        { id: 'categorie', validate: value => value !== '' },
-        { id: 'detail', validate: value => value.trim().length > 0 },
-        { id: 'portions', validate: value => !isNaN(value) && parseInt(value) >= 1 && parseInt(value) <= 100 }
-    ];
-    
-    // Ajouter des écouteurs d'événements pour chaque champ
-    fields.forEach(field => {
-        const element = document.getElementById(field.id);
-        if (element) {
-            // Validation à chaque modification du champ
-            element.addEventListener('input', function() {
-                validateField(this, field.validate);
-            });
-            
-            // Validation lors de la perte de focus
-            element.addEventListener('blur', function() {
-                validateField(this, field.validate);
-            });
-        }
-    });
-}
-
-// Valider un champ et mettre à jour son apparence
-function validateField(field, validateFn) {
-    if (!field.required && field.value.trim() === '') {
-        // Champ facultatif et vide
-        field.classList.remove('valid');
-        return true;
+    // Initialiser l'interface
+    this.init();
+  }
+  
+  /**
+   * Initialise l'interface
+   */
+  init() {
+    // Vérifier que les éléments nécessaires sont présents
+    if (!this.form) {
+      console.error('Le formulaire n\'a pas été trouvé dans le DOM');
+      return;
     }
     
-    const isValid = validateFn(field.value);
-    if (isValid) {
-        field.classList.add('valid');
-    } else {
-        field.classList.remove('valid');
-    }
-    return isValid;
-}
-
-function setupModals() {
-    // Modal d'inscription
-    const inscriptionModal = document.getElementById("inscriptionModal");
-    const openModalBtn = document.getElementById("openModalBtn");
-    const inscriptionCloseBtn = inscriptionModal.querySelector(".close");
-    
-    openModalBtn.onclick = function() {
-        inscriptionModal.style.display = "block";
+    // Créer le div de résultat s'il n'existe pas
+    if (!this.resultDiv) {
+      this.resultDiv = document.createElement('div');
+      this.resultDiv.id = 'form-result';
+      this.form.after(this.resultDiv);
     }
     
-    inscriptionCloseBtn.onclick = function() {
-        inscriptionModal.style.display = "none";
-        resetForm();
+    // Créer l'indicateur de chargement s'il n'existe pas
+    if (!this.loadingIndicator) {
+      this.loadingIndicator = document.createElement('div');
+      this.loadingIndicator.id = 'loading-indicator';
+      this.loadingIndicator.className = CONFIG.CSS.LOADING + ' ' + CONFIG.CSS.HIDDEN;
+      this.loadingIndicator.textContent = CONFIG.TEXTS.LOADING;
+      this.form.after(this.loadingIndicator);
     }
     
-    // Modal de politique de confidentialité
-    const privacyModal = document.getElementById("privacyModal");
-    const openPrivacyBtn = document.getElementById("openPrivacyBtn");
-    const privacyCloseBtn = privacyModal.querySelector(".close");
-    const closePrivacyBtn = document.getElementById("closePrivacyBtn");
-    
-    openPrivacyBtn.onclick = function(e) {
-        e.preventDefault();
-        privacyModal.style.display = "block";
+    // Créer le div de statut API s'il n'existe pas
+    if (!this.apiStatusDiv) {
+      this.apiStatusDiv = document.createElement('div');
+      this.apiStatusDiv.id = 'api-status';
+      this.apiStatusDiv.className = CONFIG.CSS.LOADING;
+      this.apiStatusDiv.textContent = CONFIG.TEXTS.API_LOADING;
+      document.body.prepend(this.apiStatusDiv);
     }
     
-    privacyCloseBtn.onclick = function() {
-        privacyModal.style.display = "none";
-    }
+    // Ajouter les gestionnaires d'événements
+    this.setupEventListeners();
     
-    closePrivacyBtn.onclick = function() {
-        privacyModal.style.display = "none";
-    }
+    // Mettre en place la validation du formulaire
+    this.setupFormValidation();
+  }
+  
+  /**
+   * Configure les écouteurs d'événements
+   */
+  setupEventListeners() {
+    // Écouteur pour la soumission du formulaire
+    this.form.addEventListener('submit', this.handleFormSubmit.bind(this));
     
-    // Fermeture des modals en cliquant à l'extérieur
-    window.onclick = function(event) {
-        if (event.target == inscriptionModal) {
-            inscriptionModal.style.display = "none";
-            resetForm();
-        }
-        if (event.target == privacyModal) {
-            privacyModal.style.display = "none";
-        }
-    }
-}
-
-function setupForm() {
-    const form = document.getElementById("inscriptionForm");
-    const categorieSelect = document.getElementById("categorie");
-    const detailsContainer = document.getElementById("detailsContainer");
+    // Écouteurs pour les événements de l'API
+    document.addEventListener('fete-voisins-api-ready', this.handleApiReady.bind(this));
+    document.addEventListener('fete-voisins-api-error', this.handleApiError.bind(this));
+  }
+  
+  /**
+   * Configure la validation du formulaire
+   */
+  setupFormValidation() {
+    // Ajouter des écouteurs pour la validation en temps réel
+    const inputs = this.form.querySelectorAll('input, select, textarea');
     
-    // Afficher/masquer les détails en fonction de la catégorie sélectionnée
-    categorieSelect.addEventListener("change", function() {
-        if (this.value) {
-            detailsContainer.style.display = "block";
-        } else {
-            detailsContainer.style.display = "none";
-        }
-    });
-    
-    // Ajouter un gestionnaire d'événements pour l'iframe
-    const iframe = document.getElementById('hiddenSubmitFrame');
-    iframe.addEventListener('load', function() {
-        try {
-            // Essayer de lire la réponse de l'iframe
-            const iframeDoc = this.contentDocument || this.contentWindow.document;
-            const responseText = iframeDoc.body.innerText;
-            
-            // Réinitialiser le bouton
-            const formBtn = document.querySelector("#inscriptionForm .btn");
-            formBtn.textContent = "S'inscrire";
-            formBtn.disabled = false;
-            
-            // Traiter la réponse JSON si possible
-            if (responseText && responseText.trim() !== '') {
-                try {
-                    const response = JSON.parse(responseText);
-                    
-                    if (response.result === 'success') {
-                        // Récupérer les valeurs du formulaire pour l'UI locale
-                        const nom = document.getElementById("nom").value.trim();
-                        const email = document.getElementById("email").value.trim();
-                        const telephone = document.getElementById("telephone").value.trim();
-                        const nbPersonnes = parseInt(document.getElementById("nbPersonnes").value);
-                        const categorie = document.getElementById("categorie").value;
-                        const detail = document.getElementById("detail").value.trim();
-                        const portions = parseInt(document.getElementById("portions").value);
-                        const commentaire = document.getElementById("commentaire").value.trim();
-                        
-                        // Ajouter aux données locales pour la mise à jour de l'interface
-                        const newId = participations.length > 0 ? 
-                            Math.max(...participations.map(p => p.id)) + 1 : 1;
-                            
-                        participations.push({
-                            id: newId,
-                            nom: nom,
-                            email: email,
-                            telephone: telephone,
-                            nbPersonnes: nbPersonnes,
-                            categorie: categorie,
-                            detail: detail,
-                            portions: portions,
-                            commentaire: commentaire
-                        });
-                        
-                        updateContributionsList();
-                        showFormSuccess();
-                        resetForm();
-                        
-                        // Mettre à jour le jeton CSRF si un nouveau jeton est fourni
-                        if (response.newCsrfToken) {
-                            csrfToken = response.newCsrfToken;
-                            document.getElementById('csrfToken').value = csrfToken;
-                        } else {
-                            // Générer un nouveau jeton CSRF
-                            csrfToken = generateCSRFToken();
-                            document.getElementById('csrfToken').value = csrfToken;
-                        }
-                        
-                        // Recharger les données après 2 secondes
-                        setTimeout(() => {
-                            loadDataFromGoogleSheets();
-                        }, 2000);
-                    } else {
-                        showFormError(response.error || "Erreur lors de l'enregistrement. Veuillez réessayer.");
-                    }
-                } catch (e) {
-                    console.error("Erreur de parsing JSON:", e);
-                    showFormError("Erreur de communication avec le serveur. Veuillez réessayer.");
-                }
-            } else {
-                // Si la réponse est vide ou ne contient pas de JSON valide
-                showFormSuccess(); // Nous supposons que c'est un succès mais sans confirmation
-                resetForm();
-            }
-        } catch (error) {
-            console.error("Erreur lors de la lecture de la réponse iframe:", error);
-            // En cas d'erreur de sécurité cross-origin, nous ne pouvons pas lire la réponse
-            // mais nous supposons que c'est un succès car le formulaire a été soumis
-            showFormSuccess();
-            resetForm();
-        }
-    });
-    
-    // Soumission du formulaire avec validation
-    form.addEventListener("submit", function(e) {
-        e.preventDefault();
-        
-        // Récupérer les valeurs du formulaire
-        const nom = document.getElementById("nom").value.trim();
-        const email = document.getElementById("email").value.trim();
-        const telephone = document.getElementById("telephone").value.trim();
-        const nbPersonnes = parseInt(document.getElementById("nbPersonnes").value);
-        const categorie = document.getElementById("categorie").value;
-        const detail = document.getElementById("detail") ? document.getElementById("detail").value.trim() : "";
-        const portions = document.getElementById("portions") ? parseInt(document.getElementById("portions").value) : 0;
-        const commentaire = document.getElementById("commentaire").value.trim();
-        const formToken = document.getElementById("csrfToken").value;
-        
-        // Validation des données
-        if (!nom || !email || !telephone || !categorie || (categorie && (!detail || !portions))) {
-            showFormError("Veuillez remplir tous les champs obligatoires.");
-            return;
-        }
-        
-        if (!validateEmail(email)) {
-            showFormError("Veuillez entrer une adresse email valide.");
-            return;
-        }
-        
-        if (!validatePhone(telephone)) {
-            showFormError("Veuillez entrer un numéro de téléphone valide (10 chiffres).");
-            return;
-        }
-        
-        if (isNaN(nbPersonnes) || nbPersonnes < 1 || nbPersonnes > 20) {
-            showFormError("Le nombre de personnes doit être entre 1 et 20.");
-            return;
-        }
-        
-        if (categorie && (isNaN(portions) || portions < 1 || portions > 100)) {
-            showFormError("Le nombre de portions doit être entre 1 et 100.");
-            return;
-        }
-        
-        // Vérifier que le jeton CSRF est présent et valide
-        if (formToken !== csrfToken) {
-            showFormError("Erreur de sécurité. Veuillez recharger la page et réessayer.");
-            return;
-        }
-        
-        // Ajouter l'origine au formulaire
-        const originInput = document.createElement('input');
-        originInput.type = 'hidden';
-        originInput.name = 'origin';
-        originInput.value = window.location.hostname;
-        form.appendChild(originInput);
-        
-        // Modifier l'action du formulaire
-        form.action = CONFIG.API_URL;
-        form.method = 'POST';
-        form.target = 'hiddenSubmitFrame'; // Envoyer dans l'iframe caché
-        form.enctype = 'text/plain'; // Important pour que le serveur reçoive les données correctement
-        
-        // Transformer le formulaire pour l'envoyer comme données JSON
-        // (nécessaire car Google Apps Script attend du JSON)
-        const formData = {
-            timestamp: new Date().toISOString(),
-            nom: sanitizeInput(nom),
-            email: sanitizeInput(email),
-            telephone: sanitizeInput(telephone),
-            nbPersonnes: nbPersonnes,
-            categorie: sanitizeInput(categorie),
-            detail: sanitizeInput(detail),
-            portions: portions,
-            commentaire: sanitizeInput(commentaire),
-            csrfToken: formToken,
-            origin: window.location.hostname
-        };
-        
-        // Créer un champ caché pour contenir les données JSON
-        const jsonField = document.createElement('input');
-        jsonField.type = 'hidden';
-        jsonField.name = '';
-        jsonField.value = JSON.stringify(formData);
-        form.appendChild(jsonField);
-        
-        // Supprimer tous les autres champs (ils ne doivent pas être envoyés individuellement)
-        Array.from(form.elements).forEach(el => {
-            if (el !== jsonField && el.type !== 'submit' && el.name !== '') {
-                el.name = '_' + el.name; // Préfixe pour les désactiver
-            }
-        });
-        
-        // Afficher un message d'attente
-        const formBtn = document.querySelector("#inscriptionForm .btn");
-        formBtn.textContent = "Envoi en cours...";
-        formBtn.disabled = true;
-        
-        // Soumettre le formulaire
-        form.submit();
-        
-        // Restaurer les noms des champs
-        Array.from(form.elements).forEach(el => {
-            if (el.name.startsWith('_')) {
-                el.name = el.name.substring(1);
-            }
-        });
-        
-        // Supprimer les champs temporaires
-        form.removeChild(jsonField);
-        form.removeChild(originInput);
-    });
-}
-
-// Cette fonction utilise JSONP pour contourner CORS
-function loadDataFromGoogleSheets() {
-    // Afficher un message de chargement
-    document.getElementById("saleList").innerHTML = "<li>Chargement des données...</li>";
-    document.getElementById("sucreList").innerHTML = "<li>Chargement des données...</li>";
-    document.getElementById("softList").innerHTML = "<li>Chargement des données...</li>";
-    document.getElementById("alcoList").innerHTML = "<li>Chargement des données...</li>";
-    
-    // Nettoyer tout ancien script JSONP
-    const oldScript = document.getElementById('jsonpScript');
-    if (oldScript) {
-        oldScript.parentNode.removeChild(oldScript);
-    }
-    
-    // Créer un nom de fonction de callback unique
-    const callbackName = 'jsonpCallback_' + Math.floor(Math.random() * 1000000);
-    
-    // Définir la fonction de callback dans le contexte global
-    window[callbackName] = function(data) {
-        // Nettoyer - supprimer le script et la fonction
-        const scriptElement = document.getElementById('jsonpScript');
-        if (scriptElement) {
-            scriptElement.parentNode.removeChild(scriptElement);
-        }
-        
-        try {
-            // Si un nouveau jeton CSRF est fourni, le stocker
-            if (data && data.csrfToken) {
-                csrfToken = data.csrfToken;
-                document.getElementById('csrfToken').value = csrfToken;
-            }
-            
-            if (data && data.result === 'success' && data.data && data.data.length > 0) {
-                // Transformer les données pour correspondre à notre format
-                participations = data.data.map((row, index) => ({
-                    id: index + 1,
-                    nom: row.nom || '',
-                    email: row.email || '',
-                    telephone: row.telephone || '',
-                    nbPersonnes: parseInt(row.nbPersonnes) || 1,
-                    categorie: row.categorie || '',
-                    detail: row.detail || '',
-                    portions: parseInt(row.portions) || 0,
-                    commentaire: row.commentaire || ''
-                }));
-                
-                // Mettre à jour l'interface
-                updateContributionsList();
-            } else {
-                console.log("Aucune donnée valide reçue, utilisation des données par défaut");
-                useDefaultData();
-            }
-        } catch (error) {
-            console.error("Erreur de traitement des données JSONP:", error);
-            useDefaultData();
-        }
-        
-        // Supprimer la fonction callback
-        delete window[callbackName];
-    };
-    
-    // Créer l'URL avec le paramètre callback et anti-cache
-    const originParam = encodeURIComponent(window.location.hostname);
-    const tokenParam = encodeURIComponent(csrfToken);
-    const cacheBreaker = new Date().getTime();
-    const fetchUrl = `${CONFIG.API_URL}?action=getData&origin=${originParam}&csrf=${tokenParam}&callback=${callbackName}&_=${cacheBreaker}`;
-    
-    // Créer et ajouter la balise script
-    const script = document.createElement('script');
-    script.id = 'jsonpScript';
-    script.src = fetchUrl;
-    script.onerror = function() {
-        console.error("Erreur lors du chargement JSONP");
-        useDefaultData();
-        
-        // Nettoyer
-        delete window[callbackName];
-    };
-    
-    // Ajouter un délai maximal
-    const timeout = setTimeout(function() {
-        // Si le callback n'a pas été appelé dans le délai imparti
-        if (window[callbackName]) {
-            console.log("Délai JSONP dépassé, utilisation des données par défaut");
-            useDefaultData();
-            
-            // Nettoyer
-            delete window[callbackName];
-            const scriptElement = document.getElementById('jsonpScript');
-            if (scriptElement) {
-                scriptElement.parentNode.removeChild(scriptElement);
-            }
-        }
-    }, CONFIG.REQUEST_TIMEOUT);
-    
-    // Ajouter le script au document
-    document.body.appendChild(script);
-}
-
-// Fonction pour utiliser des données par défaut en cas d'erreur
-function useDefaultData() {
-    participations = [
-        {id: 1, nom: "Participant Exemple 1", email: "exemple1@example.com", telephone: "0612345678", nbPersonnes: 2, categorie: "sale", detail: "Quiche aux légumes", portions: 8, commentaire: ""},
-        {id: 2, nom: "Participant Exemple 2", email: "exemple2@example.com", telephone: "0623456789", nbPersonnes: 3, categorie: "sucre", detail: "Tarte aux fruits", portions: 10, commentaire: ""},
-        {id: 3, nom: "Participant Exemple 3", email: "exemple3@example.com", telephone: "0634567890", nbPersonnes: 1, categorie: "alco", detail: "Vin rouge", portions: 12, commentaire: "2 bouteilles"},
-        {id: 4, nom: "Participant Exemple 4", email: "exemple4@example.com", telephone: "0645678901", nbPersonnes: 2, categorie: "soft", detail: "Jus et sodas", portions: 10, commentaire: ""}
-    ];
-    updateContributionsList();
-}
-
-// Fonctions de mise à jour de l'UI
-function updateContributionsList() {
-    const categories = {
-        sale: { list: document.getElementById("saleList"), total: document.getElementById("saleTotal"), meter: document.getElementById("saleMeter") },
-        sucre: { list: document.getElementById("sucreList"), total: document.getElementById("sucreTotal"), meter: document.getElementById("sucreMeter") },
-        soft: { list: document.getElementById("softList"), total: document.getElementById("softTotal"), meter: document.getElementById("softMeter") },
-        alco: { list: document.getElementById("alcoList"), total: document.getElementById("alcoTotal"), meter: document.getElementById("alcoMeter") }
-    };
-    
-    const totals = { sale: 0, sucre: 0, soft: 0, alco: 0 };
-    
-    // Réinitialiser les listes
-    for (const cat in categories) {
-        categories[cat].list.innerHTML = "";
-    }
-    
-    // Remplir avec les participations
-    participations.forEach(p => {
-        if (categories[p.categorie]) {
-            const li = document.createElement("li");
-            // N'afficher que le nom (pas l'email ou téléphone) pour la confidentialité
-            li.innerHTML = `<span>${sanitizeInput(p.detail)} (${sanitizeInput(p.nom)})</span> <span>${p.portions} portions</span>`;
-            categories[p.categorie].list.appendChild(li);
-            totals[p.categorie] += parseInt(p.portions) || 0;
-        }
-    });
-    
-    // Ajouter un message si la liste est vide
-    for (const cat in categories) {
-        if (categories[cat].list.children.length === 0) {
-            categories[cat].list.innerHTML = "<li>Aucune contribution pour le moment</li>";
-        }
-    }
-    
-    // Mettre à jour les totaux et barres de progression
-    for (const cat in categories) {
-        categories[cat].total.textContent = totals[cat];
-        const percentage = Math.min(totals[cat] / CONFIG.TARGET_PER_CATEGORY * 100, 100);
-        categories[cat].meter.style.width = `${percentage}%`;
-        
-        // Changer la couleur en fonction du pourcentage
-        if (percentage < 30) {
-            categories[cat].meter.style.backgroundColor = "#ff6b6b"; // Rouge
-        } else if (percentage < 70) {
-            categories[cat].meter.style.backgroundColor = "#ffc145"; // Orange
-        } else {
-            categories[cat].meter.style.backgroundColor = "#66bb6a"; // Vert
-        }
-    }
-    
-    // Mise à jour des recommandations
-    updateMissingItems(totals);
-}
-
-function updateMissingItems(totals) {
-    const missingSpan = document.getElementById("missingItems");
-    const missing = [];
-    
-    if (totals.sale < CONFIG.TARGET_PER_CATEGORY) missing.push("plats salés");
-    if (totals.sucre < CONFIG.TARGET_PER_CATEGORY) missing.push("desserts");
-    if (totals.soft < CONFIG.TARGET_PER_CATEGORY) missing.push("boissons non alcoolisées");
-    if (totals.alco < CONFIG.TARGET_PER_CATEGORY) missing.push("boissons alcoolisées");
-    
-    if (missing.length === 0) {
-        missingSpan.textContent = "Nous avons un bon équilibre! Merci à tous!";
-        missingSpan.style.color = "green";
-    } else {
-        missingSpan.textContent = missing.join(", ");
-        missingSpan.style.color = "#e07c0a";
-    }
-}
-
-function showFormError(message) {
-    const errorDiv = document.getElementById("formError");
-    errorDiv.textContent = message;
-    errorDiv.style.display = "block";
-    
-    // Scroller vers le message d'erreur
-    errorDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-}
-
-function showFormSuccess() {
-    const successDiv = document.getElementById("formSuccess");
-    successDiv.style.display = "block";
-    
-    // Scroller vers le message de succès
-    successDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    
-    setTimeout(() => {
-        document.getElementById("inscriptionModal").style.display = "none";
-        successDiv.style.display = "none";
-    }, 2000);
-}
-
-function resetForm() {
-    document.getElementById("inscriptionForm").reset();
-    document.getElementById("detailsContainer").style.display = "none";
-    document.getElementById("formError").style.display = "none";
-    document.getElementById("formSuccess").style.display = "none";
-    
-    // Réinitialiser les classes de validation
-    const inputs = document.querySelectorAll('input, select, textarea');
     inputs.forEach(input => {
-        input.classList.remove('valid');
+      input.addEventListener('blur', () => this.validateInput(input));
+      input.addEventListener('input', () => {
+        if (input.classList.contains(CONFIG.CSS.INVALID)) {
+          this.validateInput(input);
+        }
+      });
+    });
+  }
+  
+  /**
+   * Valide un champ du formulaire
+   * @param {HTMLElement} input - Élément à valider
+   * @returns {boolean} - true si le champ est valide
+   */
+  validateInput(input) {
+    // Récupérer le message d'erreur associé
+    let errorMessageElement = input.nextElementSibling;
+    if (!errorMessageElement || !errorMessageElement.classList.contains('error-message')) {
+      errorMessageElement = document.createElement('span');
+      errorMessageElement.className = 'error-message ' + CONFIG.CSS.HIDDEN;
+      input.after(errorMessageElement);
+    }
+    
+    // Réinitialiser l'état
+    input.classList.remove(CONFIG.CSS.INVALID);
+    errorMessageElement.classList.add(CONFIG.CSS.HIDDEN);
+    errorMessageElement.textContent = '';
+    
+    // Valider selon le type de champ
+    let isValid = true;
+    let errorMessage = '';
+    
+    if (input.hasAttribute('required') && input.value.trim() === '') {
+      isValid = false;
+      errorMessage = 'Ce champ est obligatoire';
+    } else if (input.type === 'email' && input.value.trim() !== '') {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(input.value)) {
+        isValid = false;
+        errorMessage = 'Email invalide';
+      }
+    } else if (input.id === 'telephone' && input.value.trim() !== '') {
+      const phoneRegex = /^[0-9]{10}$/;
+      if (!phoneRegex.test(input.value)) {
+        isValid = false;
+        errorMessage = 'Le téléphone doit contenir 10 chiffres';
+      }
+    } else if (input.type === 'number') {
+      const value = parseInt(input.value);
+      const min = parseInt(input.getAttribute('min') || '-Infinity');
+      const max = parseInt(input.getAttribute('max') || 'Infinity');
+      
+      if (isNaN(value) || value < min || value > max) {
+        isValid = false;
+        errorMessage = `Valeur entre ${min} et ${max} attendue`;
+      }
+    }
+    
+    // Afficher l'erreur si nécessaire
+    if (!isValid) {
+      input.classList.add(CONFIG.CSS.INVALID);
+      errorMessageElement.textContent = errorMessage;
+      errorMessageElement.classList.remove(CONFIG.CSS.HIDDEN);
+    }
+    
+    return isValid;
+  }
+  
+  /**
+   * Valide le formulaire complet
+   * @returns {boolean} - true si le formulaire est valide
+   */
+  validateForm() {
+    const inputs = this.form.querySelectorAll('input, select, textarea');
+    let isValid = true;
+    
+    inputs.forEach(input => {
+      if (!this.validateInput(input)) {
+        isValid = false;
+      }
     });
     
-    // Générer un nouveau jeton CSRF
-    csrfToken = generateCSRFToken();
-    document.getElementById('csrfToken').value = csrfToken;
+    return isValid;
+  }
+  
+  /**
+   * Gère la soumission du formulaire
+   * @param {Event} event - Événement de soumission
+   */
+  async handleFormSubmit(event) {
+    // Empêcher la soumission normale du formulaire
+    event.preventDefault();
+    
+    // Vérifier que l'API est disponible
+    if (!window.FeteVoisinsApi || !window.FeteVoisinsApi.isInitialized) {
+      this.showResult(CONFIG.TEXTS.API_ERROR, true);
+      return;
+    }
+    
+    // Valider le formulaire
+    if (!this.validateForm()) {
+      this.showResult(CONFIG.TEXTS.FORM_ERROR, true);
+      return;
+    }
+    
+    // Afficher l'indicateur de chargement
+    this.showLoading(true);
+    
+    try {
+      // Récupérer les données du formulaire
+      const formData = {
+        nom: this.form.elements.nom.value,
+        email: this.form.elements.email.value,
+        telephone: this.form.elements.telephone ? this.form.elements.telephone.value : '',
+        nbPersonnes: parseInt(this.form.elements.nbPersonnes.value) || 1,
+        categorie: this.form.elements.categorie.value,
+        detail: this.form.elements.detail.value,
+        portions: parseInt(this.form.elements.portions.value) || 1,
+        commentaire: this.form.elements.commentaire ? this.form.elements.commentaire.value : ''
+      };
+      
+      // Soumettre le formulaire
+      const response = await window.FeteVoisinsApi.submitContribution(formData);
+      
+      // Traiter la réponse
+      if (response.result === 'success') {
+        // Réinitialiser le formulaire
+        this.form.reset();
+        
+        // Afficher le message de succès
+        this.showResult(CONFIG.TEXTS.SUCCESS);
+      } else {
+        // Afficher l'erreur
+        this.showResult(CONFIG.TEXTS.ERROR + (response.error || 'Erreur inconnue'), true);
+      }
+    } catch (error) {
+      // Afficher l'erreur
+      this.showResult(CONFIG.TEXTS.ERROR + (error.message || 'Erreur inconnue'), true);
+    } finally {
+      // Cacher l'indicateur de chargement
+      this.showLoading(false);
+    }
+  }
+  
+  /**
+   * Gère l'événement lorsque l'API est prête
+   */
+  handleApiReady() {
+    if (this.apiStatusDiv) {
+      this.apiStatusDiv.textContent = 'API connectée';
+      this.apiStatusDiv.className = CONFIG.CSS.SUCCESS;
+      
+      // Cacher le message après 3 secondes
+      setTimeout(() => {
+        this.apiStatusDiv.classList.add(CONFIG.CSS.HIDDEN);
+      }, 3000);
+    }
+  }
+  
+  /**
+   * Gère l'événement d'erreur de l'API
+   * @param {CustomEvent} event - Événement contenant les détails de l'erreur
+   */
+  handleApiError(event) {
+    if (this.apiStatusDiv) {
+      this.apiStatusDiv.textContent = 'Erreur API: ' + (event.detail?.error || 'Erreur inconnue');
+      this.apiStatusDiv.className = CONFIG.CSS.ERROR;
+    }
+  }
+  
+  /**
+   * Affiche un message de résultat
+   * @param {string} message - Message à afficher
+   * @param {boolean} isError - true si c'est une erreur
+   */
+  showResult(message, isError = false) {
+    if (!this.resultDiv) return;
+    
+    this.resultDiv.textContent = message;
+    this.resultDiv.className = isError ? CONFIG.CSS.ERROR : CONFIG.CSS.SUCCESS;
+    this.resultDiv.classList.remove(CONFIG.CSS.HIDDEN);
+    
+    // Faire défiler jusqu'au message
+    this.resultDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+  
+  /**
+   * Affiche ou cache l'indicateur de chargement
+   * @param {boolean} show - true pour afficher, false pour cacher
+   */
+  showLoading(show) {
+    if (!this.loadingIndicator) return;
+    
+    if (show) {
+      this.loadingIndicator.classList.remove(CONFIG.CSS.HIDDEN);
+      this.form.classList.add(CONFIG.CSS.LOADING);
+    } else {
+      this.loadingIndicator.classList.add(CONFIG.CSS.HIDDEN);
+      this.form.classList.remove(CONFIG.CSS.LOADING);
+    }
+  }
 }
+
+// Initialiser l'interface au chargement du document
+document.addEventListener('DOMContentLoaded', () => {
+  const ui = new UIManager();
+});
