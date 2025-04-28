@@ -1,7 +1,7 @@
 // Configuration sécurisée
 const CONFIG = {
     // L'URL de l'API mise à jour - REMPLACEZ CETTE URL avec celle de votre nouveau déploiement
-    API_URL: 'https://script.google.com/macros/s/VOTRE_NOUVELLE_URL_ICI/exec',
+    API_URL: 'https://script.google.com/macros/s/AKfycbyiI7RJnVK4BTw1OK9u4Xeq1kKHj7Dg4BO5_9Ov8YPbtADxv7S0HROG8IvIcHOxz4GsJA/exec',
     // URL du groupe WhatsApp (non exposée directement dans le HTML)
     WHATSAPP_URL: 'https://chat.whatsapp.com/KBffouh7SXH6pz2CQGtF3l',
     // Nombre cible de portions par catégorie
