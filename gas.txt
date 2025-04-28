@@ -1,0 +1,248 @@
+// Ce code est à copier dans l'éditeur de script Google Apps Script
+// 1. Accédez à votre Google Sheet
+// 2. Menu Extensions > Apps Script
+// 3. Copiez ce code dans l'éditeur
+// 4. Sauvegardez et déployez en tant qu'application web
+
+// ID de votre Google Sheet
+const SHEET_ID = '1pTU6yAZcOha9_Yc_0vwDHI4eqUD4hzfYGxfVvmdbUt0';
+
+// Liste des domaines autorisés à accéder à votre API
+// Un seul domaine est autorisé pour des raisons de sécurité
+const ALLOWED_DOMAINS = [
+  'djamchid.github.io'
+];
+
+// Vérifier si l'origine est autorisée
+function isOriginAllowed(origin) {
+  if (!origin) return false;
+  
+  // Nettoyer l'origine pour éviter les injections
+  origin = origin.toLowerCase().trim();
+  
+  // Extraire le domaine (enlever http://, https://, etc.)
+  if (origin.startsWith('http://')) origin = origin.substring(7);
+  if (origin.startsWith('https://')) origin = origin.substring(8);
+  
+  // Enlever le chemin s'il y en a un
+  if (origin.includes('/')) origin = origin.split('/')[0];
+  
+  // Vérifier si le domaine est dans la liste des domaines autorisés
+  return ALLOWED_DOMAINS.some(domain => {
+    return origin === domain || origin.endsWith('.' + domain);
+  });
+}
+
+// Journaliser les tentatives d'accès
+function logAccess(method, origin, status, details) {
+  try {
+    const ss = SpreadsheetApp.openById(SHEET_ID);
+    let logSheet = ss.getSheetByName('AccessLogs');
+    
+    // Créer la feuille de logs si elle n'existe pas
+    if (!logSheet) {
+      logSheet = ss.insertSheet('AccessLogs');
+      logSheet.appendRow(['Timestamp', 'Method', 'Origin', 'Status', 'Details']);
+    }
+    
+    // Ajouter l'entrée de log
+    logSheet.appendRow([
+      new Date(), 
+      method,
+      origin || 'unknown',
+      status,
+      details || ''
+    ]);
+  } catch (error) {
+    console.error('Erreur lors de la journalisation :', error);
+  }
+}
+
+// Valider les données envoyées
+function validateData(data) {
+  // Vérifier les champs obligatoires
+  if (!data.nom || !data.email || !data.categorie || !data.detail || !data.portions) {
+    return false;
+  }
+  
+  // Vérifier que la catégorie est valide
+  const validCategories = ['sale', 'sucre', 'soft', 'alco'];
+  if (!validCategories.includes(data.categorie)) {
+    return false;
+  }
+  
+  // Vérifier que les valeurs numériques sont bien des nombres
+  const nbPersonnes = parseInt(data.nbPersonnes);
+  const portions = parseInt(data.portions);
+  if (isNaN(nbPersonnes) || isNaN(portions) || nbPersonnes < 1 || portions < 1) {
+    return false;
+  }
+  
+  // Vérifier que le format d'email est valide
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(data.email)) {
+    return false;
+  }
+  
+  // Vérifier la longueur des champs
+  if (data.nom.length > 100 || data.email.length > 100 || 
+      data.detail.length > 200 || (data.commentaire && data.commentaire.length > 500)) {
+    return false;
+  }
+  
+  return true;
+}
+
+// Cette fonction est appelée lors d'une requête POST depuis votre site web
+function doPost(e) {
+  try {
+    // Récupérer l'origine de la requête
+    let origin = 'unknown';
+    
+    // Tenter de récupérer l'origine depuis les paramètres ou les en-têtes
+    if (e && e.postData && e.postData.contents) {
+      const data = JSON.parse(e.postData.contents);
+      origin = data.origin || 'unknown';
+    }
+    
+    // Vérifier si l'origine est autorisée
+    if (!isOriginAllowed(origin)) {
+      logAccess('POST', origin, 'REJECTED', 'Origine non autorisée');
+      return ContentService
+        .createTextOutput(JSON.stringify({ 'result': 'error', 'error': 'Accès non autorisé' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    // Analyser les données JSON reçues
+    const data = JSON.parse(e.postData.contents);
+    
+    // Valider les données
+    if (!validateData(data)) {
+      logAccess('POST', origin, 'REJECTED', 'Données invalides');
+      return ContentService
+        .createTextOutput(JSON.stringify({ 'result': 'error', 'error': 'Données invalides' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    // Ouvrir le Google Sheet
+    const ss = SpreadsheetApp.openById(SHEET_ID);
+    
+    // Ajouter l'entrée dans l'onglet "Participants"
+    const sheetParticipants = ss.getSheetByName('Participants');
+    sheetParticipants.appendRow([
+      new Date(), // Timestamp
+      data.nom,
+      data.email,
+      data.telephone,
+      data.nbPersonnes
+    ]);
+    
+    // Ajouter l'entrée dans l'onglet "Contributions"
+    const sheetContributions = ss.getSheetByName('Contributions');
+    sheetContributions.appendRow([
+      new Date(), // Timestamp
+      data.nom,
+      data.email,
+      data.telephone,
+      data.nbPersonnes,
+      data.categorie,
+      data.detail,
+      data.portions,
+      data.commentaire
+    ]);
+    
+    // Journaliser l'accès réussi
+    logAccess('POST', origin, 'SUCCESS', 'Contribution ajoutée');
+    
+    // Retourner une réponse de succès
+    return ContentService
+      .createTextOutput(JSON.stringify({ 'result': 'success' }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (error) {
+    // Journaliser l'erreur
+    logAccess('POST', 'unknown', 'ERROR', error.toString());
+    
+    // En cas d'erreur, retourner un message d'erreur
+    return ContentService
+      .createTextOutput(JSON.stringify({ 'result': 'error', 'error': 'Erreur interne' }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+// Cette fonction est appelée lors d'une requête GET
+// Elle renvoie toutes les contributions stockées dans l'onglet "Contributions"
+function doGet(e) {
+  try {
+    // Récupérer l'origine de la requête
+    let origin = 'unknown';
+    if (e && e.parameter && e.parameter.origin) {
+      origin = e.parameter.origin;
+    }
+    
+    // Vérifier si l'origine est autorisée
+    if (!isOriginAllowed(origin)) {
+      logAccess('GET', origin, 'REJECTED', 'Origine non autorisée');
+      return ContentService
+        .createTextOutput(JSON.stringify({ 'result': 'error', 'error': 'Accès non autorisé' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    // Vérifier si c'est une demande de données
+    if (e && e.parameter && e.parameter.action === 'getData') {
+      // Ouvrir le Google Sheet
+      const ss = SpreadsheetApp.openById(SHEET_ID);
+      const sheetContributions = ss.getSheetByName('Contributions');
+      
+      // Récupérer toutes les données
+      const data = sheetContributions.getDataRange().getValues();
+      
+      // Obtenir les en-têtes (première ligne)
+      const headers = data[0];
+      
+      // Créer un tableau d'objets à partir des données
+      const result = [];
+      for (let i = 1; i < data.length; i++) {
+        const row = data[i];
+        const item = {};
+        for (let j = 0; j < headers.length; j++) {
+          item[headers[j]] = row[j];
+        }
+        result.push(item);
+      }
+      
+      // Journaliser l'accès réussi
+      logAccess('GET', origin, 'SUCCESS', 'Données récupérées');
+      
+      // Retourner les données au format JSON
+      return ContentService
+        .createTextOutput(JSON.stringify({ 'result': 'success', 'data': result }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    // Journaliser l'accès
+    logAccess('GET', origin, 'SUCCESS', 'Ping de vérification');
+    
+    // Si ce n'est pas une demande de données, retourner un message simple
+    return ContentService
+      .createTextOutput(JSON.stringify({ 'status': 'ok', 'message': 'API de La Fête des Voisins opérationnelle!' }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (error) {
+    // Journaliser l'erreur
+    logAccess('GET', 'unknown', 'ERROR', error.toString());
+    
+    // En cas d'erreur, retourner un message d'erreur
+    return ContentService
+      .createTextOutput(JSON.stringify({ 'result': 'error', 'error': 'Erreur interne' }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+// INSTRUCTIONS DE DÉPLOIEMENT :
+// 1. Cliquez sur "Déployer" > "Nouvelle déploiement"
+// 2. Sélectionnez "Application web"
+// 3. Description: "API Fête des Voisins"
+// 4. Exécuter en tant que: "Moi-même"
+// 5. Qui a accès: "Tout le monde"
+// 6. Cliquez sur "Déployer"
+// 7. Copiez l'URL Web app et utilisez-la comme GOOGLE_SCRIPT_URL dans votre site web
+// 8. IMPORTANT: Après chaque modification du script, vous devez créer un NOUVEAU déploiement
