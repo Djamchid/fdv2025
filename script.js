@@ -1,8 +1,7 @@
 // Configuration sécurisée
 const CONFIG = {
-    // L'URL de l'API mise à jour - Vous devrez remplacer cette URL après votre nouveau déploiement
-    // IMPORTANT: Remplacez cette URL par celle de votre nouveau déploiement
-    API_URL: 'https://script.google.com/macros/s/AKfycbw889WG6676-JK8k0begiTWH160ZstKy3QS8xsTVY46UTBLRviBbKiRHe7ix7WWvBXeuA/exec',
+    // L'URL de l'API mise à jour - REMPLACEZ CETTE URL avec celle de votre nouveau déploiement
+    API_URL: 'https://script.google.com/macros/s/VOTRE_NOUVELLE_URL_ICI/exec',
     // URL du groupe WhatsApp (non exposée directement dans le HTML)
     WHATSAPP_URL: 'https://chat.whatsapp.com/KBffouh7SXH6pz2CQGtF3l',
     // Nombre cible de portions par catégorie
@@ -187,6 +186,90 @@ function setupForm() {
         }
     });
     
+    // Ajouter un gestionnaire d'événements pour l'iframe
+    const iframe = document.getElementById('hiddenSubmitFrame');
+    iframe.addEventListener('load', function() {
+        try {
+            // Essayer de lire la réponse de l'iframe
+            const iframeDoc = this.contentDocument || this.contentWindow.document;
+            const responseText = iframeDoc.body.innerText;
+            
+            // Réinitialiser le bouton
+            const formBtn = document.querySelector("#inscriptionForm .btn");
+            formBtn.textContent = "S'inscrire";
+            formBtn.disabled = false;
+            
+            // Traiter la réponse JSON si possible
+            if (responseText && responseText.trim() !== '') {
+                try {
+                    const response = JSON.parse(responseText);
+                    
+                    if (response.result === 'success') {
+                        // Récupérer les valeurs du formulaire pour l'UI locale
+                        const nom = document.getElementById("nom").value.trim();
+                        const email = document.getElementById("email").value.trim();
+                        const telephone = document.getElementById("telephone").value.trim();
+                        const nbPersonnes = parseInt(document.getElementById("nbPersonnes").value);
+                        const categorie = document.getElementById("categorie").value;
+                        const detail = document.getElementById("detail").value.trim();
+                        const portions = parseInt(document.getElementById("portions").value);
+                        const commentaire = document.getElementById("commentaire").value.trim();
+                        
+                        // Ajouter aux données locales pour la mise à jour de l'interface
+                        const newId = participations.length > 0 ? 
+                            Math.max(...participations.map(p => p.id)) + 1 : 1;
+                            
+                        participations.push({
+                            id: newId,
+                            nom: nom,
+                            email: email,
+                            telephone: telephone,
+                            nbPersonnes: nbPersonnes,
+                            categorie: categorie,
+                            detail: detail,
+                            portions: portions,
+                            commentaire: commentaire
+                        });
+                        
+                        updateContributionsList();
+                        showFormSuccess();
+                        resetForm();
+                        
+                        // Mettre à jour le jeton CSRF si un nouveau jeton est fourni
+                        if (response.newCsrfToken) {
+                            csrfToken = response.newCsrfToken;
+                            document.getElementById('csrfToken').value = csrfToken;
+                        } else {
+                            // Générer un nouveau jeton CSRF
+                            csrfToken = generateCSRFToken();
+                            document.getElementById('csrfToken').value = csrfToken;
+                        }
+                        
+                        // Recharger les données après 2 secondes
+                        setTimeout(() => {
+                            loadDataFromGoogleSheets();
+                        }, 2000);
+                    } else {
+                        showFormError(response.error || "Erreur lors de l'enregistrement. Veuillez réessayer.");
+                    }
+                } catch (e) {
+                    console.error("Erreur de parsing JSON:", e);
+                    showFormError("Erreur de communication avec le serveur. Veuillez réessayer.");
+                }
+            } else {
+                // Si la réponse est vide ou ne contient pas de JSON valide
+                showFormSuccess(); // Nous supposons que c'est un succès mais sans confirmation
+                resetForm();
+            }
+        } catch (error) {
+            console.error("Erreur lors de la lecture de la réponse iframe:", error);
+            // En cas d'erreur de sécurité cross-origin, nous ne pouvons pas lire la réponse
+            // mais nous supposons que c'est un succès car le formulaire a été soumis
+            showFormSuccess();
+            resetForm();
+        }
+    });
+    
     // Soumission du formulaire avec validation
     form.addEventListener("submit", function(e) {
         e.preventDefault();
@@ -234,8 +317,22 @@ function setupForm() {
             return;
         }
         
-        // Sanitiser les entrées
-        const sanitizedData = {
+        // Ajouter l'origine au formulaire
+        const originInput = document.createElement('input');
+        originInput.type = 'hidden';
+        originInput.name = 'origin';
+        originInput.value = window.location.hostname;
+        form.appendChild(originInput);
+        
+        // Modifier l'action du formulaire
+        form.action = CONFIG.API_URL;
+        form.method = 'POST';
+        form.target = 'hiddenSubmitFrame'; // Envoyer dans l'iframe caché
+        form.enctype = 'text/plain'; // Important pour que le serveur reçoive les données correctement
+        
+        // Transformer le formulaire pour l'envoyer comme données JSON
+        // (nécessaire car Google Apps Script attend du JSON)
+        const formData = {
             timestamp: new Date().toISOString(),
             nom: sanitizeInput(nom),
             email: sanitizeInput(email),
@@ -246,135 +343,79 @@ function setupForm() {
             portions: portions,
             commentaire: sanitizeInput(commentaire),
             csrfToken: formToken,
-            origin: window.location.hostname // Envoyer le domaine d'origine pour la vérification de sécurité
+            origin: window.location.hostname
         };
         
-        // Envoyer les données au Google Sheet via Google Apps Script
-        console.log("Données à envoyer au Google Sheet:", sanitizedData);
+        // Créer un champ caché pour contenir les données JSON
+        const jsonField = document.createElement('input');
+        jsonField.type = 'hidden';
+        jsonField.name = '';
+        jsonField.value = JSON.stringify(formData);
+        form.appendChild(jsonField);
+        
+        // Supprimer tous les autres champs (ils ne doivent pas être envoyés individuellement)
+        Array.from(form.elements).forEach(el => {
+            if (el !== jsonField && el.type !== 'submit' && el.name !== '') {
+                el.name = '_' + el.name; // Préfixe pour les désactiver
+            }
+        });
         
         // Afficher un message d'attente
         const formBtn = document.querySelector("#inscriptionForm .btn");
-        const originalBtnText = formBtn.textContent;
         formBtn.textContent = "Envoi en cours...";
         formBtn.disabled = true;
         
-        // Créer un contrôleur d'abandon pour limiter le temps d'attente
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), CONFIG.REQUEST_TIMEOUT);
+        // Soumettre le formulaire
+        form.submit();
         
-        fetch(CONFIG.API_URL, {
-            method: 'POST',
-            // CORS retiré
-            cache: 'no-cache',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            redirect: 'follow',
-            body: JSON.stringify(sanitizedData),
-            signal: controller.signal
-        })
-        .then(response => {
-            clearTimeout(timeoutId);
-            
-            if (!response.ok) {
-                throw new Error(`Erreur HTTP: ${response.status}`);
+        // Restaurer les noms des champs
+        Array.from(form.elements).forEach(el => {
+            if (el.name.startsWith('_')) {
+                el.name = el.name.substring(1);
             }
-            return response.json();
-        })
-        .then(data => {
-            // Réinitialiser le bouton
-            formBtn.textContent = originalBtnText;
-            formBtn.disabled = false;
-            
-            if (data.result === 'success') {
-                // Ajouter aux données locales pour la mise à jour de l'interface
-                const newId = participations.length > 0 ? 
-                    Math.max(...participations.map(p => p.id)) + 1 : 1;
-                    
-                participations.push({
-                    id: newId,
-                    ...sanitizedData
-                });
-                
-                updateContributionsList();
-                showFormSuccess();
-                resetForm();
-                
-                // Mettre à jour le jeton CSRF si un nouveau jeton est fourni
-                if (data.newCsrfToken) {
-                    csrfToken = data.newCsrfToken;
-                    document.getElementById('csrfToken').value = csrfToken;
-                } else {
-                    // Générer un nouveau jeton CSRF
-                    csrfToken = generateCSRFToken();
-                    document.getElementById('csrfToken').value = csrfToken;
-                }
-                
-                // Recharger les données après 2 secondes
-                setTimeout(() => {
-                    loadDataFromGoogleSheets();
-                }, 2000);
-            } else {
-                showFormError(data.error || "Erreur lors de l'enregistrement. Veuillez réessayer.");
-            }
-        })
-        .catch(error => {
-            clearTimeout(timeoutId);
-            console.error('Erreur lors de l\'envoi des données:', error);
-            
-            if (error.name === 'AbortError') {
-                showFormError("La requête a pris trop de temps. Veuillez réessayer.");
-            } else {
-                showFormError("Erreur de connexion. Veuillez vérifier votre connexion internet et réessayer.");
-            }
-            
-            // Réinitialiser le bouton
-            formBtn.textContent = originalBtnText;
-            formBtn.disabled = false;
         });
+        
+        // Supprimer les champs temporaires
+        form.removeChild(jsonField);
+        form.removeChild(originInput);
     });
 }
 
-// Fonction pour charger les données depuis Google Sheets via le Google Apps Script
-async function loadDataFromGoogleSheets() {
-    try {
-        // Afficher un message de chargement
-        document.getElementById("saleList").innerHTML = "<li>Chargement des données...</li>";
-        document.getElementById("sucreList").innerHTML = "<li>Chargement des données...</li>";
-        document.getElementById("softList").innerHTML = "<li>Chargement des données...</li>";
-        document.getElementById("alcoList").innerHTML = "<li>Chargement des données...</li>";
+// Cette fonction utilise JSONP pour contourner CORS
+function loadDataFromGoogleSheets() {
+    // Afficher un message de chargement
+    document.getElementById("saleList").innerHTML = "<li>Chargement des données...</li>";
+    document.getElementById("sucreList").innerHTML = "<li>Chargement des données...</li>";
+    document.getElementById("softList").innerHTML = "<li>Chargement des données...</li>";
+    document.getElementById("alcoList").innerHTML = "<li>Chargement des données...</li>";
+    
+    // Nettoyer tout ancien script JSONP
+    const oldScript = document.getElementById('jsonpScript');
+    if (oldScript) {
+        oldScript.parentNode.removeChild(oldScript);
+    }
+    
+    // Créer un nom de fonction de callback unique
+    const callbackName = 'jsonpCallback_' + Math.floor(Math.random() * 1000000);
+    
+    // Définir la fonction de callback dans le contexte global
+    window[callbackName] = function(data) {
+        // Nettoyer - supprimer le script et la fonction
+        const scriptElement = document.getElementById('jsonpScript');
+        if (scriptElement) {
+            scriptElement.parentNode.removeChild(scriptElement);
+        }
         
-        // Créer une URL pour faire une requête GET au script avec l'origine et le jeton CSRF
-        const originParam = encodeURIComponent(window.location.hostname);
-        const tokenParam = encodeURIComponent(csrfToken);
-        const cacheBreaker = new Date().getTime();
-        const fetchUrl = `${CONFIG.API_URL}?action=getData&origin=${originParam}&csrf=${tokenParam}&_=${cacheBreaker}`;
-        
-        // Créer un contrôleur d'abandon pour limiter le temps d'attente
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), CONFIG.REQUEST_TIMEOUT);
-        
-        // Tenter de récupérer les données du serveur - SANS mode CORS
-        const response = await fetch(fetchUrl, {
-            method: 'GET',
-            // mode: 'cors' retiré
-            signal: controller.signal
-        });
-        
-        clearTimeout(timeoutId);
-        
-        if (response.ok) {
-            const jsonData = await response.json();
-            
+        try {
             // Si un nouveau jeton CSRF est fourni, le stocker
-            if (jsonData.csrfToken) {
-                csrfToken = jsonData.csrfToken;
+            if (data && data.csrfToken) {
+                csrfToken = data.csrfToken;
                 document.getElementById('csrfToken').value = csrfToken;
             }
             
-            if (jsonData.result === 'success' && jsonData.data && jsonData.data.length > 0) {
+            if (data && data.result === 'success' && data.data && data.data.length > 0) {
                 // Transformer les données pour correspondre à notre format
-                participations = jsonData.data.map((row, index) => ({
+                participations = data.data.map((row, index) => ({
                     id: index + 1,
                     nom: row.nom || '',
                     email: row.email || '',
@@ -388,25 +429,55 @@ async function loadDataFromGoogleSheets() {
                 
                 // Mettre à jour l'interface
                 updateContributionsList();
-                return;
+            } else {
+                console.log("Aucune donnée valide reçue, utilisation des données par défaut");
+                useDefaultData();
+            }
+        } catch (error) {
+            console.error("Erreur de traitement des données JSONP:", error);
+            useDefaultData();
+        }
+        
+        // Supprimer la fonction callback
+        delete window[callbackName];
+    };
+    
+    // Créer l'URL avec le paramètre callback et anti-cache
+    const originParam = encodeURIComponent(window.location.hostname);
+    const tokenParam = encodeURIComponent(csrfToken);
+    const cacheBreaker = new Date().getTime();
+    const fetchUrl = `${CONFIG.API_URL}?action=getData&origin=${originParam}&csrf=${tokenParam}&callback=${callbackName}&_=${cacheBreaker}`;
+    
+    // Créer et ajouter la balise script
+    const script = document.createElement('script');
+    script.id = 'jsonpScript';
+    script.src = fetchUrl;
+    script.onerror = function() {
+        console.error("Erreur lors du chargement JSONP");
+        useDefaultData();
+        
+        // Nettoyer
+        delete window[callbackName];
+    };
+    
+    // Ajouter un délai maximal
+    const timeout = setTimeout(function() {
+        // Si le callback n'a pas été appelé dans le délai imparti
+        if (window[callbackName]) {
+            console.log("Délai JSONP dépassé, utilisation des données par défaut");
+            useDefaultData();
+            
+            // Nettoyer
+            delete window[callbackName];
+            const scriptElement = document.getElementById('jsonpScript');
+            if (scriptElement) {
+                scriptElement.parentNode.removeChild(scriptElement);
             }
         }
-        
-        // Si nous n'avons pas pu charger les données ou si elles sont vides,
-        // utiliser les données par défaut
-        console.log("Aucune donnée chargée du serveur, utilisation des données par défaut");
-        useDefaultData();
-        
-    } catch (error) {
-        console.error('Erreur lors du chargement des données:', error);
-        
-        if (error.name === 'AbortError') {
-            console.log("La requête a pris trop de temps, utilisation des données par défaut");
-        }
-        
-        // En cas d'erreur, utiliser des données de démo
-        useDefaultData();
-    }
+    }, CONFIG.REQUEST_TIMEOUT);
+    
+    // Ajouter le script au document
+    document.body.appendChild(script);
 }
 
 // Fonction pour utiliser des données par défaut en cas d'erreur
