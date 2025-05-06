@@ -256,6 +256,77 @@
             border-radius: 5px;
             margin-bottom: 1rem;
         }
+        @media print {
+        /* Remplacer les fonds bleus par des alternatives imprimables */
+        header {
+            background-color: white !important;
+            color: #1e5ca0 !important;
+            border-bottom: 2px solid #1e5ca0 !important;
+            box-shadow: none !important;
+        }
+        
+        .banner {
+            background: white !important;
+            color: #1e5ca0 !important;
+            border: 2px solid #1e5ca0 !important;
+            box-shadow: none !important;
+        }
+        
+        .banner h1, .banner h2 {
+            color: #1e5ca0 !important;
+        }
+        
+        footer {
+            background-color: white !important;
+            color: #1e5ca0 !important;
+            border-top: 2px solid #1e5ca0 !important;
+        }
+        
+        footer a {
+            color: #1e5ca0 !important;
+        }
+        
+        /* Améliorer la lisibilité des autres éléments pour l'impression */
+        .info-box {
+            border: 1px solid #ddd !important;
+            box-shadow: none !important;
+        }
+        
+        .meter {
+            border: 1px solid #ccc !important;
+        }
+        
+        .meter > span {
+            background-color: #ccc !important;
+            background-image: repeating-linear-gradient(
+                45deg,
+                #ccc,
+                #ccc 10px,
+                #ddd 10px,
+                #ddd 20px
+            ) !important;
+        }
+        
+        /* Cacher les éléments non nécessaires pour l'impression */
+        .modal, #openModalBtn {
+            display: none !important;
+        }
+        
+        /* Ajuster les marges et la taille du papier */
+        @page {
+            size: A4;
+            margin: 1.5cm;
+        }
+        
+        body {
+            font-size: 12pt !important;
+        }
+        
+        /* S'assurer que chaque section commence sur une nouvelle page si nécessaire */
+        .info-box, .grid {
+            page-break-inside: avoid;
+        }
+    }
     </style>
 </head>
 <body>
